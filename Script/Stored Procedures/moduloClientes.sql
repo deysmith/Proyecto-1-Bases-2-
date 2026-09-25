@@ -37,6 +37,7 @@ CREATE PROCEDURE BuscarClientes
 AS
 BEGIN
   SELECT
+      c.CustomerID,
       c.CustomerName,
       cc.CustomerCategoryName,
       me.DeliveryMethodName
@@ -57,7 +58,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerCategorias
+CREATE PROCEDURE ObtenerCategoriasClientes
 AS
 BEGIN
   SELECT 
@@ -66,8 +67,18 @@ BEGIN
 END
 GO
 
+/*
+  Devuelve los detalles de un cliente en especifico
+  Entradas:
+    - @Nombre_Cliente - nvarchar(100): Nombre del cliente al que se le desean consultar sus datos 
+  Salidas
+    - Los siguientes datos del cliente: Nombre, categoría, grupo de compra, contactos, cliente por
+      facturar, métodos de entrega, cuidad de entrega, código postal, teléfono, fax, payment days,
+      dirección y localización geográfica.
+  Restricciones
+*/
 CREATE PROCEDURE ObtenerDatosClientes
-  @ID_Cliente int
+  @Nombre_Cliente nvarchar(100)  --El nombre del cliente es único
 AS
 BEGIN
   SELECT
@@ -89,20 +100,40 @@ BEGIN
       case
         when c.BillToCustomerID <> c.CustomerID then (SELECT CustomerName FROM clientes  WHERE CustomerID = c.BillToCustomerID)
         else c.CustomerName
-      END AS BillToCustomer
-  
+      END AS BillToCustomer,
+
+      me.DeliveryMethodName,
+      ci.CityName,
+      c.DeliveryPostalCode,
+      c.PhoneNumber,
+      c.FaxNumber,
+      c.PaymentDays,
+      c.WebsiteURL,
+      CONCAT(
+          'Entrega (Delivery): ',
+          c.DeliveryAddressLine1, 
+          ISNULL( ', ' +  c.DeliveryAddressLine2, ''), 
+          ' - Postal',
+          c.PostalAddressLine1, 
+          ISNULL(', ' + c.PostalAddressLine2, '')) as Address,
+      c.DeliveryLocation
+
   FROM clientes c
   INNER JOIN categorias_clientes cc on cc.CustomerCategoryID = c.CustomerCategoryID
   INNER JOIN personas p on p.PersonID = c.PrimaryContactPersonID
+  INNER JOIN  metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
+  INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
   LEFT JOIN personas p1 on p1.PersonID = c.AlternateContactPersonID
-  FULL JOIN grupo_compra gc on gc.BuyingGroupID = c.BuyingGroupID
+  LEFT JOIN grupo_compra gc on gc.BuyingGroupID = c.BuyingGroupID
 
-  WHERE c.CustomerID = @ID_Cliente
+  WHERE c.CustomerName = @Nombre_Cliente
 END
+GO
 
 select * from clientes where CustomerID = 2
 
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetClientes
 EXECUTE BuscarClientes 'Tailspin toys'
-EXECUTE ObtenerCategorias
+EXECUTE ObtenerCategoriasClientes
+EXECUTE ObtenerDatosClientes 'Tailspin Toys (Sylvanite, MT)'

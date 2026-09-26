@@ -1,13 +1,17 @@
 /*
 Se encarga de obtener el nombre, grupos y cantidad en inventario de los productos
 Entradas:
-    - No recibe entradas
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
 Salidas:
     - Nombre, grupos y cantidad en inventario de los productos registrados
 Restricciones:
-    - No posee restricciones
+    - @NumeroPagina debe ser un número entero positivo
+    - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
 CREATE PROCEDURE GetProductos
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
 AS
 BEGIN
   SELECT
@@ -21,6 +25,8 @@ BEGIN
   LEFT JOIN nombre_grupo_producto np on np.StockGroupID = gp.StockGroupID
   GROUP BY p.StockItemName, ip.QuantityOnHand
   ORDER BY p.StockItemName ASC
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 
@@ -29,14 +35,25 @@ GO
 Se encarga de obtener el nombre, grupos y cantidad en inventario de los productos
 que su nombre o grupo coincide con el criterio de búsqueda
 Entradas:
-    - @Criterio - nvarchar(100)
+    - @Nombre - nvarchar(100): Coincidencia de nombre
+    - @GrupoID - int: Identificador del grupo de productos
+    - @CantidadMinima - int: Cantidad minimo de productos
+    - @CantidadMaxima - int: Cantidad maxima de productos
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
 Salidas:
     - Nombre, grupos y cantidad en inventario de los productos registrados
 Restricciones:
-    - @Criterio debe tener un largo de 0 a 100 caracteres
+    - @NumeroPagina debe ser un número entero positivo
+    - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
 CREATE PROCEDURE BuscarProductos
-  @Criterio nvarchar(100)
+  @Nombre nvarchar(100) = NULL,
+  @GrupoID int = NULL,
+  @CantidadMinima int = NULL,
+  @CantidadMaxima int = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
 AS
 BEGIN
   SELECT
@@ -48,9 +65,25 @@ BEGIN
   LEFT JOIN inventario_productos ip on ip.StockItemID = p.StockItemID
   LEFT JOIN grupos_productos gp on gp.StockItemID = p.StockItemID
   LEFT JOIN nombre_grupo_producto np on np.StockGroupID = gp.StockGroupID
+  WHERE (
+    @Nombre IS NULL
+    OR @Nombre = ''
+    OR p.StockItemName LIKE '%' + @Nombre + '%'
+  ) AND (
+    @GrupoID IS NULL
+    OR gp.StockGroupID = @GrupoID
+  ) AND (
+    @CantidadMinima IS NULL
+    OR ip.QuantityOnHand >= @CantidadMinima
+  ) AND (
+    @CantidadMaxima IS NULL
+    OR ip.QuantityOnHand <= @CantidadMaxima 
+  )
+
   GROUP BY p.StockItemName, ip.QuantityOnHand
-  HAVING  p.StockItemName LIKE '%' + @Criterio + '%' OR STRING_AGG(np.StockGroupName, ', ') LIKE '%' + @Criterio + '%'
   ORDER BY p.StockItemName ASC
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 
@@ -67,20 +100,22 @@ CREATE PROCEDURE ObtenerGruposProductos
 AS
 BEGIN
   SELECT
-      DISTINCT (ng.StockGroupName)
+      DISTINCT (ng.StockGroupName),
+      ng.StockGroupID
   FROM nombre_grupo_producto ng
   INNER JOIN grupos_productos gp on gp.StockGroupID = ng.StockGroupID
 END
 GO
 
 /*
-
+Devuelve los datos correspondientes a un producto específico.
 Entradas:
-    -
+  - @Nombre_Producto - nvarchar(100): Nombre del producto que se desea consultar
 Salidas:
-    -
+  - Los datos del producto
 Restricciones:
-    -
+  - @Nombre_Producto debe tener un largo máximo de 100 caracteres.
+  - El nombre del producto debe coincidir exactamente con un producto registrado.
 */
 CREATE PROCEDURE ObtenerDatosProducto
   @Nombre_Producto nvarchar(100)
@@ -97,7 +132,7 @@ BEGIN
     ISNULL(p.Size, 'No indica tamaño') as Size,
     p.TaxRate,
     p.UnitPrice,
-    p.RecommendedRetailPrice,
+    ISNULL(CAST(p.RecommendedRetailPrice as nvarchar(25)), 'No indica'),
     p.TypicalWeightPerUnit,
     ip.QuantityOnHand,
     ip.BinLocation,

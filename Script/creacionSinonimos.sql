@@ -29,6 +29,10 @@ CREATE SYNONYM grupos_productos FOR Warehouse.StockItemStockGroups
 CREATE SYNONYM colores_productos FOR Warehouse.Colors
 CREATE SYNONYM tipos_paquetes_productos FOR Warehouse.PackageTypes
 
+CREATE SYNONYM facturas FOR Sales.Invoices
+CREATE SYNONYM detalle_factura FOR Sales.InvoiceLines
+--CREATE SYNONYM ordenes FOR Sales.Orders
+
 SELECT 
   name as Sinonimo,
   base_object_name as Tabla

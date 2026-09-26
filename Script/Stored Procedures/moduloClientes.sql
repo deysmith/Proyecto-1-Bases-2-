@@ -1,15 +1,21 @@
 /*
-Devuelve el nombre, categoría y método de entraga de los clientes registradas
+Devuelve el nombre, categoría y método de entrega de los clientes registrados
 Entradas:
-    - No recibe entradas
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
 Salidas:
-    - Nombre, categoría, método de entraga y cuidad de los clientes registradas
+    - Nombre, categoría, método de entraga y entrega de los clientes registrados
 Restricciones:
-    - No posee restrcciones
+    - @NumeroPagina debe ser un número entero positivo
+    - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
 CREATE PROCEDURE GetClientes 
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
+
 AS
 BEGIN
+  
   SELECT
       c.CustomerName,
       cc.CustomerCategoryName,
@@ -20,6 +26,9 @@ BEGIN
     INNER JOIN  metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
     INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
     ORDER BY c.CustomerName ASC
+
+    OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+    FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 
@@ -27,15 +36,25 @@ GO
 Devuelve el nombre, categoría y método de entraga de los clientes qque su nombre
 coincide con el criterio de búsqueda
 Entradas:
-    - @Criterio - nvarchar(50): Criterio de búsqueda
+    - @Criterio - nvarchar(100): Texto utilizado para buscar coincidencias con nombre
+    - @CategoriaID - int: Identificador de la categoría
+    - @MetodoEntregaID - int: Identificador del metodo de entrega
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
 Salidas:
-    - Nombre, categoría, método de entraga y cuidad de los clientes que su nombre cumple 
+    - Nombre, categoría, método de entraga y ciudad de los clientes que su nombre cumple 
       con el criterio
 Restricciones:
-    - @Criterio dene tener una longitud de 0 a 50 caracteres
+    - @NumeroPagina debe ser un número entero positivo
+    - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE BuscarClientes
-  @Criterio nvarchar(50)
+CREATE PROCEDURE BuscarFiltrarClientes
+  @Criterio nvarchar(100) = NULL,
+  @CategoriaID int = NULL,
+  @MetodoEntregaID int = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
+
 AS
 BEGIN
   SELECT
@@ -47,8 +66,22 @@ BEGIN
     INNER JOIN categorias_clientes cc on cc.CustomerCategoryID = c.CustomerCategoryID
     INNER JOIN  metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
     INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
-    WHERE c.CustomerName LIKE '%' + @Criterio + '%'
+
+    WHERE (
+      @Criterio is NULL
+      OR @Criterio = ''
+      OR c.CustomerName LIKE '%' + @Criterio + '%'
+    ) AND (
+      @CategoriaID is NULL
+      OR c.CustomerCategoryID = @CategoriaID
+    ) AND (
+      @MetodoEntregaID is NULL
+      OR c.DeliveryMethodID = @MetodoEntregaID
+    )
+
     ORDER BY c.CustomerName ASC
+    OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+    FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 
@@ -65,7 +98,8 @@ CREATE PROCEDURE ObtenerCategoriasClientes
 AS
 BEGIN
   SELECT 
-      DISTINCT (cc.CustomerCategoryName)
+      DISTINCT (cc.CustomerCategoryName),
+      cc.CustomerCategoryID
   FROM categorias_clientes cc
   INNER JOIN clientes c on cc.CustomerCategoryID = c.CustomerCategoryID
 END
@@ -83,7 +117,8 @@ Restricciones:
 CREATE PROCEDURE ObtenerMetodosDeEntregaClientes
 AS
 BEGIN
-  SELECT DISTINCT (DeliveryMethodName)
+  SELECT DISTINCT (DeliveryMethodName),
+  me.DeliveryMethodID
   FROM metodos_entrega me
   INNER JOIN clientes c on c.DeliveryMethodID = me.DeliveryMethodID
 END
@@ -95,7 +130,7 @@ GO
     - @Nombre_Cliente - nvarchar(100): Nombre del cliente al que se le desean consultar sus datos 
   Salidas
     - Los siguientes datos del cliente: Nombre, categoría, grupo de compra, contactos, cliente por
-      facturar, métodos de entrega, cuidad de entrega, código postal, teléfono, fax, payment days,
+      facturar, métodos de entrega, ciudad de entrega, código postal, teléfono, fax, payment days,
       dirección y localización geográfica.
   Restricciones
 */
@@ -151,8 +186,6 @@ BEGIN
   WHERE c.CustomerName = @Nombre_Cliente
 END
 GO
-
-select * from clientes where CustomerID = 2
 
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetClientes

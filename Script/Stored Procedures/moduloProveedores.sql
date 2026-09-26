@@ -1,13 +1,16 @@
 /*
 Devuelve el nombre, categoría y método de entrega de todos los proveedores
 Entradas:
-    - No recibe entradas
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
 Salidas:
     - Nombre, categoría y método de entrega de todos los proveedores
 Restricciones:
     - No posee restricciones
 */
 CREATE PROCEDURE GetProveedores
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
 AS
 BEGIN
 SELECT
@@ -17,6 +20,9 @@ SELECT
   FROM proveedores p
   INNER JOIN categorias_proveedores c on c.SupplierCategoryID = p.SupplierCategoryID
   LEFT JOIN metodos_entrega me on me.DeliveryMethodID = p.DeliveryMethodID
+  ORDER BY p.SupplierName ASC
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 
@@ -42,6 +48,7 @@ SELECT
   INNER JOIN categorias_proveedores c on c.SupplierCategoryID = p.SupplierCategoryID
   LEFT JOIN metodos_entrega me on me.DeliveryMethodID = p.DeliveryMethodID
   WHERE p.SupplierName LIKE '%' + @Criterio + '%' OR c.SupplierCategoryName LIKE '%' + @Criterio + '%'
+  ORDER BY p.SupplierName ASC
 END
 GO
 
@@ -54,7 +61,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerCatgoriasProveedores
+CREATE PROCEDURE ObtenerCategoriasProveedores
 AS
 BEGIN
   SELECT
@@ -100,11 +107,11 @@ CREATE PROCEDURE ObtenerDatosProveedor
 AS
 BEGIN
   SELECT 
-      p.SupplierReference,
+      ISNULL(p.SupplierReference, 'No indica'),
       p.SupplierName,
       c.SupplierCategoryName,
-      pe.FullName,
-      ISNULL(pe1.FullName, 'No posee contacto alternativo') as AlternativeContact,
+      pe.FullName as PrimaryContact,
+      pe1.FullName as AlternativeContact,
       ISNULL(me.DeliveryMethodName, 'No posee un metodo de entrega estándar') as DeliveryMethodName,
       ci.CityName,
       p.DeliveryPostalCode,
@@ -118,16 +125,16 @@ BEGIN
           ' - Postal',
           p.PostalAddressLine1, 
           ISNULL(', ' + p.PostalAddressLine2, '')) as Address,
-        p.DeliveryLocation,
-        p.BankAccountBranch,
-        p.BankAccountNumber,
-        p.PaymentDays
+      p.DeliveryLocation,
+      ISNULL(p.BankAccountBranch, 'No indica'),
+      ISNULL(p.BankAccountNumber, 'No indica'),
+      p.PaymentDays
 
   FROM proveedores p
   INNER JOIN categorias_proveedores c on c.SupplierCategoryID = p.SupplierCategoryID
   INNER JOIN personas pe on pe.PersonID = p.PrimaryContactPersonID
   INNER JOIN ciudades ci on ci.CityID = p.DeliveryCityID
-  LEFT JOIN personas pe1 on pe.PersonID = p.AlternateContactPersonID
+  LEFT JOIN personas pe1 on pe1.PersonID = p.AlternateContactPersonID
   LEFT JOIN metodos_entrega me on me.DeliveryMethodID = p.DeliveryMethodID
   WHERE p.SupplierName = @Nombre_Proveedor
 END
@@ -139,5 +146,5 @@ select * from proveedores
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetProveedores
 EXECUTE BuscarProveedores No
-EXECUTE ObtenerCatgoriasProveedores
+EXECUTE ObtenerCategoriasProveedores
 EXECUTE ObtenerDatosProveedor 'A Datum Corporation'

@@ -29,7 +29,11 @@ GO
 /*
 Devuelve los proveedores donde su nombre o categoría coincida con el criterio
 Entradas:
-    - @Criterio - nvarchar(50): Criterio de búsqueda
+    - @Nombre_Proveedor - nvarchar(100): Nombre del proveedor 
+    - @CategoriaID - int: ID de la categoría
+    - @MetodoEntegaID - int: ID de la metodo de entrega
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
 Salidas:
     - Nombre, categoría y método de envío de los proveedores que coincidan con
       el criterio de búsqueda
@@ -37,7 +41,11 @@ Restricciones:
     - EL criterio debe tener entre 0 y 50 caracteres
 */
 CREATE PROCEDURE BuscarProveedores
-  @Criterio nvarchar(50)
+  @Nombre_Proveedor nvarchar(100) = NULL,
+  @CategoriaID int = NULL,
+  @MetodoEntegaID int = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
 AS
 BEGIN
 SELECT
@@ -47,8 +55,20 @@ SELECT
   FROM proveedores p
   INNER JOIN categorias_proveedores c on c.SupplierCategoryID = p.SupplierCategoryID
   LEFT JOIN metodos_entrega me on me.DeliveryMethodID = p.DeliveryMethodID
-  WHERE p.SupplierName LIKE '%' + @Criterio + '%' OR c.SupplierCategoryName LIKE '%' + @Criterio + '%'
+  WHERE (
+    @Nombre_Proveedor IS NULL
+    OR @Nombre_Proveedor = ''
+    OR p.SupplierName LIKE '%' + @Nombre_Proveedor + '%' 
+  ) AND (
+    @CategoriaID IS NULL
+    OR p.SupplierCategoryID = @CategoriaID
+  ) AND (
+    @MetodoEntegaID IS NULL
+    OR p.DeliveryMethodID = @MetodoEntegaID
+  )
   ORDER BY p.SupplierName ASC
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 

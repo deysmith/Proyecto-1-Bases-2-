@@ -133,6 +133,7 @@ GO
       facturar, métodos de entrega, ciudad de entrega, código postal, teléfono, fax, payment days,
       dirección y localización geográfica.
   Restricciones
+  - El nombre del cliente debe de coincidir con alguno registrado
 */
 CREATE PROCEDURE ObtenerDatosClientes
   @Nombre_Cliente nvarchar(100)  --El nombre del cliente es único
@@ -187,9 +188,179 @@ BEGIN
 END
 GO
 
+/*
+Agrega un nuevo cliente a la base de datos.
+Entradas:
+    - @Nombre_Cliente: Nombre del cliente.
+    - @CategoriaID: Categoría del cliente.
+    - @PrimaryContactID: Persona de contacto principal.
+    - @MetodoEntregaID: Método de entrega.
+    - @DeliveryCityID: Ciudad de entrega.
+    - @PostalCityID: Ciudad postal.
+    - @Telefono: Número de teléfono
+    - @Fax: Fax
+    - @WebsiteURL: Sitio web del cliente.
+    - @DeliveryAddress1: Primera línea de la dirección de entrega.
+    - @DeliveryPostalCode: Código postal de entrega.
+    - @DeliveryLocation: Ubicación de entrega. Es opcional.
+    - @PostalAddress1: Primera línea de la dirección postal.
+    - @PostalPostalCode: Código postal de la dirección postal.
+    - @DeliveryAddress2: Segunda línea de la dirección de entrega. Es opcional.
+    - @PostalAddress2: Segunda línea de la dirección postal. Es opcional.
+Salidas:
+    - Identificador del cliente creado.
+Valores por defecto:
+    - BillToCustomerID: Igual al CustomerID generado.
+    - AccountOpenedDate: Fecha actual.
+    - StandardDiscountPercentage: 0.000.
+    - IsStatementSent: 0.
+    - IsOnCreditHold: 0.
+    - PaymentDays: 0.
+    - BuyingGroupID: NULL.
+    - AlternateContactPersonID: NULL.
+    - CreditLimit: NULL.
+    - DeliveryRun: NULL.
+    - RunPosition: NULL.
+    - LastEditedBy: 1.
+Restricciones:
+    - CustomerName no puede estar repetido.
+    - Los identificadores utilizados como referencia deben existir
+      en sus respectivas tablas.
+    - Si ocurre un error, la transacción se cancela.
+*/
+CREATE PROCEDURE AgregarNuevoCliente
+    @Nombre_Cliente nvarchar(100),
+    @CategoriaID INT,
+    @PrimaryContactID INT,
+    @MetodoEntregaID INT,
+    @DeliveryCityID INT,
+    @PostalCityID INT,
+    @Telefono nvarchar(20),
+    @Fax nvarchar(20),
+    @WebsiteURL nvarchar(256),
+    @DeliveryAddress1 nvarchar(60),
+    @DeliveryPostalCode nvarchar(10),
+    @DeliveryLocation nvarchar(MAX) = NULL,
+    @PostalAddress1 nvarchar(60),
+    @PostalPostalCode nvarchar(10),
+    @DeliveryAddress2 nvarchar(60) = NULL,
+    @PostalAddress2 nvarchar(60) = NULL
+AS
+BEGIN
+    BEGIN TRY
+
+        BEGIN TRANSACTION;
+
+        IF EXISTS (
+            SELECT 1
+            FROM clientes C
+            WHERE C.CustomerName = @Nombre_Cliente
+        )
+        BEGIN
+            THROW 50001, 'Ya existe un cliente con ese nombre.', 1;
+        END
+
+        DECLARE @ID_Cliente INT;
+        SELECT @ID_Cliente = NEXT VALUE FOR Sequences.CustomerID;
+
+        INSERT INTO clientes (
+            CustomerID,
+            CustomerName,
+            BillToCustomerID,
+            CustomerCategoryID,
+            BuyingGroupID,
+            PrimaryContactPersonID,
+            AlternateContactPersonID,
+            DeliveryMethodID,
+            DeliveryCityID,
+            PostalCityID,
+            CreditLimit,
+            AccountOpenedDate,
+            StandardDiscountPercentage,
+            IsStatementSent,
+            IsOnCreditHold,
+            PaymentDays,
+            PhoneNumber,
+            FaxNumber,
+            WebsiteURL,
+            DeliveryAddressLine1,
+            DeliveryAddressLine2,
+            DeliveryPostalCode,
+            DeliveryLocation,
+            PostalAddressLine1,
+            PostalAddressLine2,
+            PostalPostalCode,
+            LastEditedBy
+        )
+        VALUES (
+            @ID_Cliente,
+            @Nombre_Cliente,
+            @ID_Cliente,
+            @CategoriaID,
+            NULL,
+            @PrimaryContactID,
+            NULL,
+            @MetodoEntregaID,
+            @DeliveryCityID,
+            @PostalCityID,
+            NULL,
+            CAST(GETDATE() AS DATE),
+            0.000,
+            0,
+            0,
+            0,
+            @Telefono,
+            @Fax,
+            @WebsiteURL,
+            @DeliveryAddress1,
+            @DeliveryAddress2,
+            @DeliveryPostalCode,
+            CASE 
+              WHEN @DeliveryLocation is NULL OR @DeliveryLocation = '' THEN NULL
+              ELSE geography::Parse(@DeliveryLocation)
+            END,
+            @PostalAddress1,
+            @PostalAddress2,
+            @PostalPostalCode,
+            1
+        )
+
+        COMMIT TRANSACTION;
+        SELECT @ID_Cliente AS Cliente_ID;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        SELECT --Devolver los super errores
+            ERROR_NUMBER() AS NumeroError,
+            ERROR_MESSAGE() AS MensajeError,
+            ERROR_LINE() AS LineaError
+    END CATCH
+
+END
+GO
+
+
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetClientes
-EXECUTE BuscarClientes 'Tailspin toys'
+EXECUTE BuscarFiltrarClientes 'Tailspin toys'
 EXECUTE ObtenerCategoriasClientes
 EXECUTE ObtenerMetodosDeEntregaClientes
 EXECUTE ObtenerDatosClientes 'Tailspin Toys (Sylvanite, MT)'
+EXEC AgregarNuevoCliente
+    @Nombre_Cliente = 'Try Gonzales',
+    @CategoriaID = 3,
+    @PrimaryContactID = 2,
+    @MetodoEntregaID = 3,
+    @DeliveryCityID = 1,
+    @PostalCityID = 1,
+    @Telefono = '8888-8080',
+    @Fax = '2020-2020',
+    @WebsiteURL = 'https://www.clienteprueba.com',
+    @DeliveryAddress1 = 'CAL',
+    @DeliveryPostalCode = '70101',
+    @PostalAddress1 = 'CAL',
+    @PostalPostalCode = '70101'
+
+select * from clientes c where c.Custome

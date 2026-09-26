@@ -3,7 +3,7 @@ Devuelve el nombre, categoría y método de entraga de los clientes registradas
 Entradas:
     - No recibe entradas
 Salidas:
-    - Nombre, categoría y método de entraga de los clientes registradas
+    - Nombre, categoría, método de entraga y cuidad de los clientes registradas
 Restricciones:
     - No posee restrcciones
 */
@@ -13,10 +13,12 @@ BEGIN
   SELECT
       c.CustomerName,
       cc.CustomerCategoryName,
-      me.DeliveryMethodName
+      me.DeliveryMethodName,
+      ci.CityName
     FROM clientes c
     INNER JOIN categorias_clientes cc on cc.CustomerCategoryID = c.CustomerCategoryID
     INNER JOIN  metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
+    INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
     ORDER BY c.CustomerName ASC
 END
 GO
@@ -27,7 +29,7 @@ coincide con el criterio de búsqueda
 Entradas:
     - @Criterio - nvarchar(50): Criterio de búsqueda
 Salidas:
-    - Nombre, categoría y método de entraga de los clientes que su nombre cumple 
+    - Nombre, categoría, método de entraga y cuidad de los clientes que su nombre cumple 
       con el criterio
 Restricciones:
     - @Criterio dene tener una longitud de 0 a 50 caracteres
@@ -37,13 +39,14 @@ CREATE PROCEDURE BuscarClientes
 AS
 BEGIN
   SELECT
-      c.CustomerID,
       c.CustomerName,
       cc.CustomerCategoryName,
-      me.DeliveryMethodName
+      me.DeliveryMethodName,
+      ci.CityName
     FROM clientes c
     INNER JOIN categorias_clientes cc on cc.CustomerCategoryID = c.CustomerCategoryID
     INNER JOIN  metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
+    INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
     WHERE c.CustomerName LIKE '%' + @Criterio + '%'
     ORDER BY c.CustomerName ASC
 END
@@ -62,8 +65,27 @@ CREATE PROCEDURE ObtenerCategoriasClientes
 AS
 BEGIN
   SELECT 
-      cc.CustomerCategoryName
+      DISTINCT (cc.CustomerCategoryName)
   FROM categorias_clientes cc
+  INNER JOIN clientes c on cc.CustomerCategoryID = c.CustomerCategoryID
+END
+GO
+
+/*
+Devuelve todos los métodos de entrega utilizados por lo clientes
+Entradas:
+    - No recibe parámetros
+Salidas:
+    - Los métodos de entrga que están vinvulo a algun cliente
+Restricciones:
+    - No posee restricciones
+*/
+CREATE PROCEDURE ObtenerMetodosDeEntregaClientes
+AS
+BEGIN
+  SELECT DISTINCT (DeliveryMethodName)
+  FROM metodos_entrega me
+  INNER JOIN clientes c on c.DeliveryMethodID = me.DeliveryMethodID
 END
 GO
 
@@ -136,4 +158,5 @@ select * from clientes where CustomerID = 2
 EXECUTE GetClientes
 EXECUTE BuscarClientes 'Tailspin toys'
 EXECUTE ObtenerCategoriasClientes
+EXECUTE ObtenerMetodosDeEntregaClientes
 EXECUTE ObtenerDatosClientes 'Tailspin Toys (Sylvanite, MT)'

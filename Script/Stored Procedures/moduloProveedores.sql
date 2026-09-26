@@ -58,17 +58,40 @@ CREATE PROCEDURE ObtenerCatgoriasProveedores
 AS
 BEGIN
   SELECT
-      c.SupplierCategoryName
+      DISTINCT (c.SupplierCategoryName)
   FROM categorias_proveedores c
+  INNER JOIN proveedores p on p.SupplierCategoryID = c.SupplierCategoryID
 END
 GO
 
 /*
-
+Devuelve todos los métodos de entrega utilizados por lo proveedores
 Entradas:
-    -
+    - No recibe parámetros
 Salidas:
-    -
+    - Los métodos de entrga que están vinvulo a algun proveedpr
+Restricciones:
+    - No posee restricciones
+*/
+CREATE PROCEDURE ObtenerMetodosDeEntregaProveedores
+AS
+BEGIN
+  SELECT DISTINCT (DeliveryMethodName)
+  FROM metodos_entrega me
+  INNER JOIN proveedores p on p.DeliveryMethodID = me.DeliveryMethodID
+END
+GO
+
+/*
+Se encarga de devolver los detalles de un proveedor en especifico
+Entradas:
+    - @Nombre_Proveedor narchar(100): Nombre del proveedor al que se le desean
+      ver los detalles
+Salidas:
+    - Los siguientes datos del proveedor: código, nombre, categpría, contactos,
+      método de entrega, cuidad de entrega, código postal, teléfono, fax, sitio 
+      web, dirección, nombre del banco, número de cuenta corriente, payment days,
+      y localización geografía
 Restricciones:
     -
 */

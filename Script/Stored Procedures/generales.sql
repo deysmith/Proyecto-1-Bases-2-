@@ -43,7 +43,51 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE ObtenerTiposDePaquete
+AS
+BEGIN
+  SELECT
+    tp.PackageTypeName,
+    tp.PackageTypeID
+  FROM tipos_paquetes_productos tp
+END
+GO
+
+CREATE PROCEDURE ObtenerColoresProductos
+AS
+BEGIN
+  SELECT
+    c.ColorName,
+    c.ColorID
+  FROM colores_productos c
+END
+GO
+
 EXECUTE ObtenerTodasCategoriasProveedores
 EXECUTE ObtenerTodasCategoriasClientes
 EXECUTE ObtenerMetodosDeEntregaGeneral
 EXECUTE ObtenerTodasGruposProductos
+
+-- Para los campos de LastEditedBy cree una nueva 'persona'
+INSERT INTO personas (
+    FullName,
+    PreferredName,
+    IsPermittedToLogon,
+    IsExternalLogonProvider,
+    IsSystemUser,
+    IsEmployee,
+    IsSalesperson,
+    LastEditedBy
+)
+VALUES (
+    'PagWeb',
+    'PagWeb',
+    0,
+    0,
+    1,
+    1,
+    0,
+    1
+)
+
+SELECT * FROM personas WHERE FullName = 'PagWeb'

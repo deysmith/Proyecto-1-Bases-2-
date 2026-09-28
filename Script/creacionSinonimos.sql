@@ -14,6 +14,8 @@ CREATE SYNONYM personas for Application.People
 
 CREATE SYNONYM proveedores FOR Purchasing.Suppliers
 CREATE SYNONYM categorias_proveedores FOR Purchasing.SupplierCategories
+CREATE SYNONYM ordenes FOR Purchasing.PurchaseOrders
+CREATE SYNONYM detalle_ordenes FOR Purchasing.PurchaseOrderLines
 
 CREATE SYNONYM productos FOR Warehouse.StockItems
 CREATE SYNONYM inventario_productos FOR Warehouse.StockItemHoldings
@@ -38,4 +40,4 @@ SELECT
   base_object_name as Tabla
 FROM sys.synonyms
 
---drop synonym if exists grupo_producto
+--drop synonym if exists detalle_ordenes

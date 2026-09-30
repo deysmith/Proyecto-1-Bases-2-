@@ -303,7 +303,6 @@ BEGIN
         ERROR_MESSAGE() AS MensajeError,
         ERROR_LINE() AS LineaError
   END CATCH
-
 END
 GO
 

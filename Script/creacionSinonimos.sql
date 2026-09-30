@@ -7,6 +7,8 @@ USE WideWorldImporters;
 CREATE SYNONYM clientes FOR Sales.Customers
 CREATE SYNONYM categorias_clientes FOR Sales.CustomerCategories
 CREATE SYNONYM grupo_compra FOR Sales.BuyingGroups
+CREATE SYNONYM transacciones_clientes FOR Sales.CustomerTransactions
+CREATE SYNONYM ordenes_clientes FOR Sales.Orders
 
 CREATE SYNONYM metodos_entrega FOR Application.DeliveryMethods
 CREATE SYNONYM ciudades for Application.Cities

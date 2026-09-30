@@ -63,6 +63,14 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE ObtenerFechasVentasAnioProveedor
+AS
+BEGIN
+  SELECT DISTINCT(YEAR(f.InvoiceDate))
+  FROM facturas f
+END
+GO
+
 EXECUTE ObtenerTodasCategoriasProveedores
 EXECUTE ObtenerTodasCategoriasClientes
 EXECUTE ObtenerMetodosDeEntregaGeneral

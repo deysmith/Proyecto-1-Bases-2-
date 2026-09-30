@@ -246,7 +246,8 @@ CREATE PROCEDURE AgregarNuevoCliente
   @PostalAddress1 nvarchar(60),
   @PostalPostalCode nvarchar(10),
   @DeliveryAddress2 nvarchar(60) = NULL,
-  @PostalAddress2 nvarchar(60) = NULL
+  @PostalAddress2 nvarchar(60) = NULL,
+  @PaymentDays int
 AS
 BEGIN
   SET XACT_ABORT ON
@@ -369,7 +370,7 @@ BEGIN
         0.000,
         0,
         0,
-        0,
+        @PaymentDays,
         @Telefono,
         @Fax,
         @WebsiteURL,
@@ -402,8 +403,190 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE EditarDatosClientes
 
+/*
+  Edita los datos de un cliente existente en la base de datos.
+  Entradas:
+  - @ID_Cliente: Identificador del cliente que se desea editar.
+  - Las siguientes entradas son opcionales: 
+  - @Nombre_Cliente: Nuevo nombre del cliente.
+  - @CategoriaID: Nueva categoría del cliente.
+  - @MetodoEntregaID: Nuevo método de entrega.
+  - @DeliveryCityID: Nueva ciudad de entrega.
+  - @PostalCityID: Nueva ciudad postal.
+  - @Telefono: Nuevo número de teléfono.
+  - @Fax: Nuevo número de fax.
+  - @WebsiteURL: Nuevo sitio web del cliente. Es opcional.
+  - @DeliveryAddress1: Primera línea de la nueva dirección de entrega.
+  - @DeliveryPostalCode: Nuevo código postal de entrega.
+  - @DeliveryLocation: Nueva ubicación de entrega.
+  - @PostalAddress1: Primera línea de la nueva dirección postal.
+  - @PostalPostalCode: Nuevo código postal de la dirección postal.
+  - @DeliveryAddress2: Segunda línea de la nueva dirección de entrega.
+  - @PostalAddress2: Segunda línea de la nueva dirección postal.
+  - @PaymentDays: Cantidad de días establecidos para el pago del cliente.
+Salidas:
+  - Actualiza los datos del cliente indicado.
+Restricciones:
+  - @ID_Cliente debe corresponder a un cliente existente.
+  - @Nombre_Cliente no puede coincidir con el nombre de otro cliente..
+  - Si un parámetro es null, se conserva el valor actual del cliente.
+*/
+alter PROCEDURE EditarDatosClientes
+  @ID_Cliente int,
+  @Nombre_Cliente nvarchar(100) = NULL,
+  @CategoriaID int = NULL,
+  @MetodoEntregaID int = NULL,
+  @DeliveryCityID int = NULL,
+  @PostalCityID int = NULL,
+  @Telefono nvarchar(20) = NULL,
+  @Fax nvarchar(20) = NULL,
+  @WebsiteURL nvarchar(256) = NULL,
+  @DeliveryAddress1 nvarchar(60) = NULL,
+  @DeliveryPostalCode nvarchar(10) = NULL, 
+  @DeliveryLocation nvarchar(MAX) = NULL,
+  @PostalAddress1 nvarchar(60) = NULL,
+  @PostalPostalCode nvarchar(10) = NULL,
+  @DeliveryAddress2 nvarchar(60) = NULL,
+  @PostalAddress2 nvarchar(60) = NULL,
+  @PaymentDays int = NULL
+AS
+BEGIN
+  SET XACT_ABORT ON
+  
+  BEGIN TRY
+    BEGIN TRANSACTION
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM clientes C
+        WHERE C.CustomerID = @ID_Cliente
+    )
+
+    BEGIN
+        THROW 50007, 'El cliente indicado no existe.', 1
+    END
+
+    IF @Nombre_Cliente is NOT NULL AND EXISTS (
+      SELECT 1
+      FROM clientes c
+      WHERE c.CustomerName = @Nombre_Cliente AND CustomerID <> @ID_Cliente
+    )
+    BEGIN
+      THROW 50001, 'Ya existe un cliente con ese nombre.', 1
+    END
+
+    UPDATE clientes 
+    SET
+        CustomerName = ISNULL(@Nombre_Cliente, CustomerName),
+        CustomerCategoryID = ISNULL(@CategoriaID, CustomerCategoryID),
+        DeliveryMethodID = ISNULL(@MetodoEntregaID, DeliveryMethodID),
+        DeliveryCityID = ISNULL(@DeliveryCityID, DeliveryCityID),
+        PostalCityID = ISNULL(@PostalCityID, PostalCityID),
+        PhoneNumber = ISNULL(@Telefono, PhoneNumber),
+        FaxNumber = ISNULL(@Fax, FaxNumber),
+        WebsiteURL = ISNULL(@WebsiteURL, WebsiteURL),
+        DeliveryAddressLine1 = ISNULL(@DeliveryAddress1, DeliveryAddressLine1),
+        DeliveryPostalCode = ISNULL(@DeliveryPostalCode, DeliveryPostalCode),
+        DeliveryLocation = ISNULL(geography::Parse(@DeliveryLocation), DeliveryLocation),
+        PostalAddressLine1 = ISNULL(@PostalAddress1, PostalAddressLine1),
+        PostalPostalCode = ISNULL(@PostalPostalCode, PostalPostalCode),
+        DeliveryAddressLine2 = ISNULL(@DeliveryAddress2, DeliveryAddressLine2),
+        PostalAddressLine2 = ISNULL(@PostalAddress2, PostalAddressLine2),
+        PaymentDays = ISNULL(@PaymentDays, PaymentDays)
+    WHERE CustomerID = @ID_Cliente
+
+    COMMIT TRANSACTION
+  END TRY
+
+  BEGIN CATCH
+    IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION
+    SELECT
+        ERROR_NUMBER() AS NumeroError,
+        ERROR_MESSAGE() AS MensajeError,
+        ERROR_LINE() AS LineaError
+  END CATCH
+
+END
+GO
+
+/*
+  Elimina un cliente de la base de datos.
+  Entradas:
+    - @ID_Cliente: Identificador del cliente que se desea eliminar.
+  Salidas:
+    - Elimina el cliente indicado de la base de datos.
+  Restricciones:
+    - @ID_Cliente debe corresponder a un cliente existente.
+    - El cliente no puede tener facturas asociadas.
+    - El cliente no puede tener órdenes asociadas.
+    - El cliente no puede tener transacciones asociadas.
+*/
+CREATE PROCEDURE BorrarCliente
+  @ID_Cliente int
+AS
+BEGIN
+  SET XACT_ABORT ON
+
+  BEGIN TRY
+      BEGIN TRANSACTION
+
+      IF NOT EXISTS (
+          SELECT 1
+          FROM clientes c
+          WHERE c.CustomerID = @ID_Cliente
+      )
+      BEGIN
+          THROW 50007, 'El cliente indicado no existe.', 1
+      END
+
+      IF EXISTS (
+          SELECT 1
+          FROM facturas f
+          WHERE f.CustomerID = @ID_Cliente
+      )
+      BEGIN
+          THROW 50008, 'No se puede eliminar el cliente porque tiene facturas asociadas.', 1
+      END
+
+      IF EXISTS (
+          SELECT 1
+          FROM ordenes_clientes oc
+          WHERE oc.CustomerID = @ID_Cliente
+      )
+      BEGIN
+          THROW 50009, 'No se puede eliminar el cliente porque tiene órdenes asociadas.', 1
+      END
+
+      IF EXISTS (
+          SELECT 1
+          FROM transacciones_clientes tc
+          WHERE tc.CustomerID = @ID_Cliente
+      )
+      BEGIN
+          THROW 50010, 'No se puede eliminar el cliente porque tiene transacciones asociadas.', 1
+      END
+
+      DELETE 
+      FROM clientes
+      WHERE CustomerID = @ID_Cliente
+
+      COMMIT TRANSACTION
+  END TRY
+
+  BEGIN CATCH
+      IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION
+
+      SELECT
+        ERROR_NUMBER() AS NumeroError,
+        ERROR_MESSAGE() AS MensajeError,
+        ERROR_LINE() AS LineaError
+  END CATCH
+
+END
+GO
 
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetClientes
@@ -425,6 +608,12 @@ EXECUTE AgregarNuevoCliente
     @DeliveryAddress1 = 'CAL',
     @DeliveryPostalCode = '70101',
     @PostalAddress1 = 'CAL',
-    @PostalPostalCode = '70101'
--- Ver resukltado
+    @PostalPostalCode = '70101',
+    @PaymentDays = 7
+-- Ver resultado
 EXECUTE ObtenerDatosClientes 'Tryss flores'
+EXECUTE EditarDatosClientes @ID_Cliente = 1164, @Nombre_Cliente = 'Trys flores'
+EXECUTE BorrarCliente 1164
+
+
+SELECT c.CustomerID from clientes c where c.CustomerName = 'Tailspin Toys (Sylvanite, MT)'

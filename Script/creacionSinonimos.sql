@@ -9,6 +9,7 @@ CREATE SYNONYM categorias_clientes FOR Sales.CustomerCategories
 CREATE SYNONYM grupo_compra FOR Sales.BuyingGroups
 CREATE SYNONYM transacciones_clientes FOR Sales.CustomerTransactions
 CREATE SYNONYM ordenes_clientes FOR Sales.Orders
+CREATE SYNONYM detalles_ordenes_clientes FOR Sales.OrderLines
 
 CREATE SYNONYM metodos_entrega FOR Application.DeliveryMethods
 CREATE SYNONYM ciudades for Application.Cities
@@ -18,6 +19,7 @@ CREATE SYNONYM proveedores FOR Purchasing.Suppliers
 CREATE SYNONYM categorias_proveedores FOR Purchasing.SupplierCategories
 CREATE SYNONYM ordenes FOR Purchasing.PurchaseOrders
 CREATE SYNONYM detalle_ordenes FOR Purchasing.PurchaseOrderLines
+CREATE SYNONYM transacciones_proveedores FOR Purchasing.SupplierTransactions
 
 CREATE SYNONYM productos FOR Warehouse.StockItems
 CREATE SYNONYM inventario_productos FOR Warehouse.StockItemHoldings
@@ -32,9 +34,11 @@ eso se almacena en Warehouse.StockItemStockGroups
 CREATE SYNONYM grupos_productos FOR Warehouse.StockItemStockGroups
 CREATE SYNONYM colores_productos FOR Warehouse.Colors
 CREATE SYNONYM tipos_paquetes_productos FOR Warehouse.PackageTypes
+CREATE SYNONYM transacciones_productos FOR Warehouse.StockItemTransactions
 
 CREATE SYNONYM facturas FOR Sales.Invoices
 CREATE SYNONYM detalle_factura FOR Sales.InvoiceLines
+CREATE SYNONYM ofertas FOR Sales.SpecialDeals
 --CREATE SYNONYM ordenes FOR Sales.Orders
 
 SELECT 
@@ -42,4 +46,4 @@ SELECT
   base_object_name as Tabla
 FROM sys.synonyms
 
---drop synonym if exists detalle_ordenes
+--drop synonym if exists detalles_ordenes_clientes

@@ -205,7 +205,8 @@ CREATE PROCEDURE AgregarNuevoProducto
   @TypicalWeight decimal(18, 3),
   @MarketingSearchDetails nvarchar(MAX),
   @BinLocation nvarchar(20),
-  @QuantityOnHand int
+  @QuantityOnHand int,
+  @Grupos_Productos nvarchar(100)
 AS
 BEGIN
   SET XACT_ABORT ON
@@ -290,6 +291,17 @@ BEGIN
       @PersonaEncargadaID
     )
 
+    INSERT INTO grupos_productos (
+      StockItemID,
+      StockGroupID,
+      LastEditedBy
+    )
+    SELECT 
+        @ID_Producto,
+        CAST(value as int),
+        @PersonaEncargadaID
+    FROM STRING_SPLIT(@Grupos_Productos, ',')
+
     COMMIT TRANSACTION
     SELECT @ID_Producto as Producto_ID
 
@@ -306,15 +318,217 @@ BEGIN
 END
 GO
 
+/*
+
+  Entradas:
+  Salidas:
+  Restricciones
+*/
+CREATE PROCEDURE EditarDatosProducto
+  @ID_Producto int = NULL,
+  @Nombre_Producto nvarchar(100) = NULL,
+  @ColorID int = NULL,
+  @UnitPackageID int = NULL,
+  @OuterPackageID int = NULL,
+  @Marca nvarchar(50) = NULL,
+  @Size nvarchar(20) = NULL,
+  @QuantityPerOuter int = NULL,
+  @TaxRate decimal(18, 3) = NULL,
+  @UnitPrice decimal(18, 2) = NULL,
+  @RecommendedPrice decimal (18, 2) = NULL,
+  @TypicalWeight decimal(18, 3) = NULL,
+  @MarketingSearchDetails nvarchar(MAX) = NULL,
+  @BinLocation nvarchar(20) = NULL,
+  @QuantityOnHand int = NULL,
+  @Grupos_Productos nvarchar(100)
+AS
+BEGIN
+  SET XACT_ABORT ON
+  DECLARE @PersonaEncargadaID int
+  
+  BEGIN TRY
+    BEGIN TRANSACTION
+    
+    IF NOT EXISTS (
+      SELECT 1
+      FROM productos p
+      WHERE p.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50017, 'El producto indicado no existe', 1
+    END
+
+    IF @Nombre_Producto is NOT NULL AND EXISTS (
+      SELECT 1
+      FROM productos p
+      WHERE p.StockItemName = @Nombre_Producto
+    )
+    BEGIN
+      THROW 50018, 'Ya existe un producto con ese nombre', 1
+    END
+
+    UPDATE productos
+    SET 
+      StockItemName = ISNULL(@Nombre_Producto, StockItemName),
+      ColorID = ISNULL(@ColorID, ColorID),
+      UnitPackageID = ISNULL(@UnitPackageID, UnitPackageID),
+      OuterPackageID = ISNULL(@OuterPackageID, OuterPackageID),
+      UnitPrice = ISNULL(@UnitPrice, UnitPrice),
+      Brand = ISNULL(@Marca, Brand),
+      QuantityPerOuter = ISNULL(@QuantityPerOuter, QuantityPerOuter),
+      TaxRate = ISNULL(@TaxRate, TaxRate),
+      RecommendedRetailPrice = ISNULL(@RecommendedPrice, RecommendedRetailPrice),
+      TypicalWeightPerUnit = ISNULL(@TypicalWeight, TypicalWeightPerUnit),
+      MarketingComments = ISNULL(@MarketingSearchDetails, MarketingComments)
+    WHERE StockItemID = @ID_Producto
+
+    UPDATE inventario_productos
+    SET
+      BinLocation = ISNULL(@BinLocation, BinLocation),
+      QuantityOnHand = ISNULL(@QuantityOnHand, QuantityOnHand)
+    WHERE StockItemID = @ID_Producto
+
+    IF @Grupos_Productos IS NOT NULL 
+    BEGIN
+      SELECT @PersonaEncargadaID = p.PersonID
+      FROM personas p 
+      WHERE FullName = 'PagWeb'
+
+      DELETE FROM grupos_productos
+      WHERE StockItemID = @ID_Producto
+
+    INSERT INTO grupos_productos (
+      StockItemID,
+      StockGroupID,
+      LastEditedBy
+    )
+    SELECT 
+        @ID_Producto,
+        CAST(value as int),
+        @PersonaEncargadaID
+    FROM STRING_SPLIT(@Grupos_Productos, ',')
+    END
+
+    COMMIT TRANSACTION
+
+  END TRY
+
+  BEGIN CATCH
+    IF XACT_STATE() <> 0
+      ROLLBACK TRANSACTION
+    SELECT 
+        ERROR_NUMBER() AS NumeroError,
+        ERROR_MESSAGE() AS MensajeError,
+        ERROR_LINE() AS LineaError
+  END CATCH
+END
+GO
+
+/*
+
+  Entradas:
+  Salidas:
+  Restricciones
+*/
+CREATE PROCEDURE EliminarProducto
+  @ID_Producto int
+AS
+BEGIN
+  SET XACT_ABORT ON
+  BEGIN TRY
+    BEGIN TRANSACTION
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM productos p
+      WHERE p.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50017, 'El producto indicado no existe', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM detalle_ordenes do
+      WHERE do.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50019, 'El producto indicado se encuentra asociado a una orden', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM detalle_factura df
+      WHERE df.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50020, 'El producto indicado se encuentra asociado a una compra', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM detalles_ordenes_clientes dc
+      WHERE dc.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50019, 'El producto indicado se encuentra asociado a una orden', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM ofertas o
+      WHERE o.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50021, 'El producto indicado se ecuentra asociado a una oferta especial', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM transacciones_productos tp
+      WHERE tp.StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50022, 'El producto indicado se encuentra asociado a una transacción', 1
+    END
+
+    DELETE 
+    FROM grupos_productos
+    WHERE StockItemID = @ID_Producto
+
+    DELETE 
+    FROM inventario_productos
+    WHERE StockItemID = @ID_Producto
+
+    DELETE 
+    FROM productos
+    WHERE StockItemID = @ID_Producto
+
+    COMMIT TRANSACTION
+  END TRY
+
+  BEGIN CATCH
+      IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION
+
+      SELECT
+        ERROR_NUMBER() AS NumeroError,
+        ERROR_MESSAGE() AS MensajeError,
+        ERROR_LINE() AS LineaError
+  END CATCH
+END
+GO
+
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetProductos
 EXECUTE BuscarProductos 'The Gu'
 EXECUTE ObtenerGruposProductos
 EXECUTE ObtenerDatosProducto '"The Gu" red shirt XML tag t-shirt (Black) 3XL'
 EXECUTE AgregarNuevoProducto 
-  @Nombre_Producto = 'Camiseta Ucr', 
+  @Nombre_Producto = 'Camiseta TEC', 
   @ProveedorID = 1,
   @ColorID = NULL,
+  @Grupos_Productos = '1,2,3',
   @UnitPackageID = 7,
   @OuterPackageID = 7,
   @Marca = 'Trying',
@@ -328,10 +542,13 @@ EXECUTE AgregarNuevoProducto
   @BinLocation = 'A-01',
   @QuantityOnHand = 20
 -- Ver los resultados de agregar
-EXECUTE ObtenerDatosProducto 'Camiseta Tec'
+EXECUTE ObtenerDatosProducto 'Camiseta TEC'
+EXECUTE EliminarProducto 278
+SELECT StockItemID from productos p where StockItemName = 'Camiseta Tec'
 
 -- Consultas
 select * from productos
 select * from nombre_grupo_producto
-select * from grupos_productos
+select * from grupos_productos where StockItemID = 328
 select * from tipos_paquetes_productos
+select * from inventario_productos

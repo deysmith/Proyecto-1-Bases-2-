@@ -432,7 +432,7 @@ Restricciones:
   - @Nombre_Cliente no puede coincidir con el nombre de otro cliente..
   - Si un parámetro es null, se conserva el valor actual del cliente.
 */
-alter PROCEDURE EditarDatosClientes
+CREATE PROCEDURE EditarDatosClientes
   @ID_Cliente int,
   @Nombre_Cliente nvarchar(100) = NULL,
   @CategoriaID int = NULL,
@@ -519,9 +519,10 @@ GO
     - Elimina el cliente indicado de la base de datos.
   Restricciones:
     - @ID_Cliente debe corresponder a un cliente existente.
-    - El cliente no puede tener facturas asociadas.
-    - El cliente no puede tener órdenes asociadas.
-    - El cliente no puede tener transacciones asociadas.
+    - El cliente no puede:
+      - Facturas asociadas.
+      - Órdenes asociadas.
+      - Transacciones asociadas.
 */
 CREATE PROCEDURE BorrarCliente
   @ID_Cliente int
@@ -567,6 +568,25 @@ BEGIN
       BEGIN
           THROW 50010, 'No se puede eliminar el cliente porque tiene transacciones asociadas.', 1
       END
+
+      IF EXISTS (
+          SELECT 1
+          FROM transacciones_productos tp
+          WHERE tp.CustomerID = @ID_Cliente
+      )
+      BEGIN
+          THROW 50012, 'No se puede eliminar el cliente porque tiene transacciones asociadas.', 1
+      END
+
+      IF EXISTS (
+          SELECT 1
+          FROM ofertas o
+          WHERE o.CustomerID = @ID_Cliente
+      )
+      BEGIN
+          THROW 50012, 'No se puede eliminar el cliente porque tiene transacciones asociadas.', 1
+      END
+
 
       DELETE 
       FROM clientes

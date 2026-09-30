@@ -377,7 +377,210 @@ BEGIN
 END
 GO
 
+/*
+  Edita los datos de un proveedor existente en la base de datos.
+  Entradas:
+    - @ID_Proveedor: Identificador del proveedor que se desea editar.
+    Los siguientes parámetros son opcionales
+    - @Nombre_Proveedor: Nuevo nombre del proveedor.
+    - @CategoriaID: Nueva categoría del proveedor.
+    - @MetodoEntegaID: Nuevo método de entrega.
+    - @DeliveryCityID: Nueva ciudad de entrega.
+    - @PostalCityID: Nueva ciudad postal.
+    - @SupplierReference: Nueva referencia del proveedor.
+    - @BanckAccountBranch: Nueva sucursal de la cuenta bancaria.
+    - @BankAccountNumber: Nuevo número de cuenta bancaria.
+    - @PaymentDays: Nueva cantidad de días establecidos para el pago.
+    - @Telefono: Nuevo número de teléfono.
+    - @Fax: Nuevo número de fax.
+    - @WebsiteURL: Nuevo sitio web del proveedor.
+    - @DeliveryAddress1: Primera línea de la nueva dirección de entrega.
+    - @DeliveryPostalCode: Nuevo código postal de entrega.
+    - @DeliveryLocation: Nueva ubicación de entrega.
+    - @PostalAddress1: Primera línea de la nueva dirección postal.
+    - @PostalPostalCode: Nuevo código postal de la dirección postal.
+    - @DeliveryAddress2: Segunda línea de la nueva dirección de entrega. 
+    - @PostalAddress2: Segunda línea de la nueva dirección postal.
+  Salidas:
+    - Actualiza los datos del proveedor indicado.
+    Restricciones:
+    - @ID_Proveedor debe corresponder a un proveedor existente.
+    - @Nombre_Proveedor no puede coincidir con el nombre de otro proveedor.
+    - Si un parámetro es null, se conserva el valor actual del proveedor.
+*/
+CREATE PROCEDURE EditarDatosProveedor
+  @ID_Proveedor int,
+  @Nombre_Proveedor nvarchar(100) = NULL,
+  @CategoriaID int = NULL,
+  @MetodoEntegaID int = NULL,
+  @DeliveryCityID int = NULL,
+  @PostalCityID int = NULL,
+  @SupplierReference nvarchar(20) = NULL,
+  @BanckAccountBranch nvarchar(50) = NULL,
+  @BankAccountNumber nvarchar(20) = NULL,
+  @PaymentDays int = NULL,
+  @Telefono nvarchar(20) = NULL,
+  @Fax nvarchar(20) = NULL,
+  @WebsiteURL nvarchar(265) = NULL,
+  @DeliveryAddress1 nvarchar(60) = NULL,
+  @DeliveryPostalCode nvarchar(10) = NULL,
+  @DeliveryLocation nvarchar(MAX) = NULL,
+  @PostalAddress1 nvarchar(60) = NULL,
+  @PostalPostalCode nvarchar(10) = NULL,
+  @DeliveryAddress2 nvarchar(60) = NULL,
+  @PostalAddress2 nvarchar(60) = NULL
+AS
+BEGIN
+  SET XACT_ABORT ON
 
+  BEGIN TRY
+    BEGIN TRANSACTION
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM proveedores p
+      WHERE p.SupplierID = @ID_Proveedor
+    )
+    BEGIN
+      THROW 50011, 'El proveedor indicado no existe', 1
+    END
+
+    IF @Nombre_Proveedor is NOT NULL AND EXISTS (
+      SELECT 1
+      FROM proveedores p
+      WHERE p.SupplierName = @Nombre_Proveedor AND p.SupplierID <> @ID_Proveedor
+    )
+    BEGIN
+      THROW 50003, 'Ya existe un proveedor con ese nombre', 1
+    END
+
+    UPDATE proveedores
+    SET
+      SupplierName = ISNULL(@Nombre_Proveedor, SupplierName),
+      SupplierCategoryID = ISNULL(@CategoriaID, SupplierCategoryID),
+      DeliveryMethodID = ISNULL(@MetodoEntegaID, DeliveryMethodID),
+      DeliveryCityID = ISNULL(@DeliveryCityID, DeliveryCityID),
+      PostalCityID = ISNULL(@PostalCityID, PostalCityID),
+      SupplierReference = ISNULL(@SupplierReference, SupplierReference),
+      BankAccountBranch = ISNULL(@BanckAccountBranch, BankAccountBranch),
+      BankAccountNumber = ISNULL(@BankAccountNumber, BankAccountNumber),
+      PaymentDays = ISNULL(@PaymentDays, PaymentDays),
+      PhoneNumber = ISNULL(@Telefono, PhoneNumber),
+      FaxNumber = ISNULL(@Fax, FaxNumber),
+      WebsiteURL = ISNULL(@WebsiteURL, WebsiteURL),
+      DeliveryAddressLine1 = ISNULL(@DeliveryAddress1, DeliveryAddressLine1),
+      DeliveryAddressLine2 = ISNULL(@DeliveryAddress2, DeliveryAddressLine2),
+      DeliveryPostalCode = ISNULL(@DeliveryPostalCode, DeliveryPostalCode),
+      DeliveryLocation = ISNULL(geography::Parse(@DeliveryLocation), DeliveryLocation),
+      PostalAddressLine1 = ISNULL(@PostalAddress1, PostalAddressLine1),
+      PostalAddressLine2 = ISNULL(@PostalAddress2, PostalAddressLine2),
+      PostalPostalCode = ISNULL(@PostalPostalCode, PostalPostalCode)
+    WHERE SupplierID = @ID_Proveedor
+
+    COMMIT TRANSACTION
+
+  END TRY
+  
+  BEGIN CATCH
+    IF XACT_STATE() <> 0
+        ROLLBACK TRANSACTION
+    SELECT
+        ERROR_NUMBER() AS NumeroError,
+        ERROR_MESSAGE() AS MensajeError,
+        ERROR_LINE() AS LineaError
+  END CATCH
+
+END
+GO
+
+/*
+  Elimina un proveedor de la base de datos.
+  Entradas:
+    - @ID_Proveedor: Identificador del proveedor que se desea eliminar.
+  Salidas:
+    - Elimina el proveedor indicado de la base de datos.
+  Restricciones:
+    - @ID_Proveedor debe corresponder a un proveedor existente.
+    - El proveedor no puede tener:
+      - Órdenes de compra asociadas.
+      - Transacciones asociadas.
+      - Productos asociados.
+      - Transacciones relacionadas con productos.
+*/
+CREATE PROCEDURE BorrarProveedor
+  @ID_Proveedor int
+AS
+BEGIN
+  SET XACT_ABORT ON
+
+  BEGIN TRY
+    BEGIN TRANSACTION
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM proveedores p
+      WHERE p.SupplierID = @ID_Proveedor
+    )
+    BEGIN
+      THROW 50011, 'El proveedor indicado no existe', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM ordenes o
+      WHERE o.SupplierID = @ID_Proveedor
+    )
+    BEGIN
+      THROW 50013, 'El proveedor indicado posee ordenes asociadas', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM transacciones_proveedores tp
+      WHERE tp.SupplierID = @ID_Proveedor
+    )
+    BEGIN
+      THROW 50014, 'El proveedor indicado posee transacciones asociadas', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM productos p
+      WHERE p.SupplierID = @ID_Proveedor
+    )
+    BEGIN
+      THROW 50015, 'El proveedor indicado posee productos asociadas', 1
+    END
+
+    IF EXISTS (
+      SELECT 1
+      FROM transacciones_productos tp
+      WHERE tp.SupplierID = @ID_Proveedor
+    )
+    BEGIN
+      THROW 50016, 'El proveedor indicado posee transacciones relacionadas con productos asociadas', 1
+    END
+
+    DELETE
+    FROM proveedores
+    WHERE SupplierID = @ID_Proveedor
+
+    COMMIT TRANSACTION
+
+  END TRY
+
+  BEGIN CATCH
+    IF XACT_STATE() <> 0
+      ROLLBACK TRANSACTION
+
+      SELECT
+        ERROR_NUMBER() AS NumeroError,
+        ERROR_MESSAGE() AS MensajeError,
+        ERROR_LINE() AS LineaError 
+  END CATCH
+
+END
+GO
 
 select * from proveedores
 select * from personas
@@ -410,3 +613,7 @@ EXEC AgregarNuevoProveedor
   @DeliveryAddress2 = NULL,
   @PostalAddress2 = NULL
 EXECUTE ObtenerDatosProveedor 'Gollos'
+EXECUTE EditarDatosProveedor @ID_Proveedor = 18, @Nombre_Proveedor = 'Monge'
+EXECUTE BorrarProveedor 10
+
+select p.SupplierID from proveedores p where p.SupplierName = 'Monge'

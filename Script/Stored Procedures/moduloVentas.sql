@@ -105,7 +105,7 @@ Salidas:
     número de orden asociada, persona de contacto, vendedor, fecha de la factura e
     instrucciones de entrega
 Restricciones:
-  -
+  - @Numero_Factura debe estar registrado
 */
 CREATE PROCEDURE ObtenerEncabezadoFactura
   @Numero_Factura int
@@ -131,6 +131,16 @@ BEGIN
 END
 GO
 
+/*
+Devuelve los datos correspondientes al detalle de una factura
+Entradas:
+  - @Factura_ID - int: Número de la factura a consultar
+Salidas:
+  - Los siguientes datos: Nombre del producto, cantidad, precio unitario, impuesto
+  aplicado, monto del impuesto total por linea
+Restricciones:
+  - @Numero_Factura debe estar registrado
+*/
 CREATE PROCEDURE ObtenerDetalleFactura
   @Numero_Factura int
 AS
@@ -149,11 +159,181 @@ BEGIN
 END
 GO
 
+/*
+Crea una factura con su respectivo detalle de factura.
+Entradas:
+  - @ID_Cliente: Identificador del cliente al que se le genera la factura.
+  - @ID_BillToCustomer: Identificador del cliente al que se factura.
+  - @ID_MetodoEntrega: Identificador del método de entrega.
+  - @ID_PersonaContacto: Identificador de la persona de contacto.
+  - @ID_PersonaCuenta: Identificador de la persona encargada de la cuenta.
+  - @ID_Vendedor: Identificador de la persona encargada de la venta.
+  - @ID_Empacador: Identificador de la persona encargada del empaque.
+  - @ID_Producto: Identificador del producto que se desea facturar.
+  - @Cantidad: Cantidad del producto que se desea incluir en la factura.
+Salidas:
+  - Crea una nueva factura.
+  - Crea una línea de detalle asociada a la factura.
+Restricciones:
+  - @ID_Cliente debe corresponder a un cliente existente.
+  - @ID_Producto debe corresponder a un producto existente.
+*/
+CREATE PROCEDURE CrearFactura
+  @ID_Cliente int,
+  @ID_BillToCustomer int,
+  @ID_MetodoEntrega int,
+  @ID_PersonaContacto int,
+  @ID_PersonaCuenta int,
+  @ID_Vendedor int,
+  @ID_Empacador int,
+  @ID_Producto int,
+  @Cantidad int
+AS
+BEGIN
+  SET XACT_ABORT ON
+
+  DECLARE @ID_Factura int
+  DECLARE @PersonaEncargadaID int
+  DECLARE @UnitPrice decimal(18, 2)
+  DECLARE @TaxRate decimal(18, 3)
+  DECLARE @Tax decimal(18, 2)
+  DECLARE @ExtendedPrice decimal(18, 2)
+
+  BEGIN TRY
+    BEGIN TRANSACTION
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM clientes
+      WHERE CustomerID = @ID_Cliente
+    )
+    BEGIN
+      THROW 50007, 'El cliente indicado no existe', 1
+    END
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM productos
+      WHERE StockItemID = @ID_Producto
+    )
+    BEGIN
+      THROW 50017, 'El producto indicado no existe', 1
+    END
+
+    IF @Cantidad <= 0
+    BEGIN
+      THROW 50025, 'La cantidad debe ser mayor que cero', 1
+    END
+
+    SELECT @PersonaEncargadaID = PersonID
+    FROM personas
+    WHERE FullName = 'PagWeb'
+
+    SELECT
+      @UnitPrice = UnitPrice,
+      @TaxRate = TaxRate
+    FROM productos
+    WHERE StockItemID = @ID_Producto
+
+    SET @ExtendedPrice = @Cantidad * @UnitPrice
+    SET @Tax = @ExtendedPrice * (@TaxRate / 100)
+
+    SELECT @ID_Factura = NEXT VALUE FOR Sequences.InvoiceID
+
+    INSERT INTO facturas (
+      InvoiceID,
+      CustomerID,
+      BillToCustomerID,
+      OrderID,
+      DeliveryMethodID,
+      ContactPersonID,
+      AccountsPersonID,
+      SalespersonPersonID,
+      PackedByPersonID,
+      InvoiceDate,
+      IsCreditNote,
+      TotalDryItems,
+      TotalChillerItems,
+      LastEditedBy
+    )
+    VALUES (
+      @ID_Factura,
+      @ID_Cliente,
+      @ID_BillToCustomer,
+      NULL,
+      @ID_MetodoEntrega,
+      @ID_PersonaContacto,
+      @ID_PersonaCuenta,
+      @ID_Vendedor,
+      @ID_Empacador,
+      CAST(GETDATE() AS DATE),
+      0,
+      @Cantidad,
+      0,
+      @PersonaEncargadaID
+    )
+
+    INSERT INTO detalle_factura (
+      InvoiceLineID,
+      InvoiceID,
+      StockItemID,
+      Description,
+      PackageTypeID,
+      Quantity,
+      UnitPrice,
+      TaxRate,
+      TaxAmount,
+      LineProfit,
+      ExtendedPrice,
+      LastEditedBy
+    )
+    SELECT
+      NEXT VALUE FOR Sequences.InvoiceLineID,
+      @ID_Factura,
+      p.StockItemID,
+      p.StockItemName,
+      p.UnitPackageID,
+      @Cantidad,
+      @UnitPrice,
+      @TaxRate,
+      @Tax,
+      0,
+      @ExtendedPrice,
+      @PersonaEncargadaID
+    FROM productos p
+    WHERE p.StockItemID = @ID_Producto
+
+    COMMIT TRANSACTION
+
+  END TRY
+
+  BEGIN CATCH
+    IF XACT_STATE() <> 0
+      ROLLBACK TRANSACTION
+    SELECT
+      ERROR_NUMBER() AS NumeroError,
+      ERROR_MESSAGE() AS MensajeError,
+      ERROR_LINE() AS LineaError
+  END CATCH
+
+END
+GO
+
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetFacturas
 EXECUTE BuscarFacturas 'Tailspin Toys (Absecon, NJ)'
 EXECUTE ObtenerEncabezadoFactura 1
 EXECUTE ObtenerDetalleFactura 2
+EXEC CrearFactura
+  @ID_Cliente = 1213,
+  @ID_BillToCustomer = 1213,
+  @ID_MetodoEntrega = 3,
+  @ID_PersonaContacto = 3414,
+  @ID_PersonaCuenta = 3414,
+  @ID_Vendedor = 4,
+  @ID_Empacador = 5,
+  @ID_Producto = 10,
+  @Cantidad = 5
 
 -- Consultas
 select TOP 10 * from facturas

@@ -303,7 +303,6 @@ BEGIN
     FROM STRING_SPLIT(@Grupos_Productos, ',')
 
     COMMIT TRANSACTION
-    SELECT @ID_Producto as Producto_ID
 
   END TRY
 
@@ -319,10 +318,31 @@ END
 GO
 
 /*
-
+  Edita los datos de un producto existente en la base de datos.
   Entradas:
+    - @ID_Producto: Identificador del producto que se desea editar.
+    - @Nombre_Producto: Nuevo nombre del producto. Es opcional.
+    - @ColorID: Nuevo identificador del color del producto. Es opcional.
+    - @UnitPackageID: Nuevo identificador del tipo de paquete unitario. Es opcional.
+    - @OuterPackageID: Nuevo identificador del tipo de paquete exterior. Es opcional.
+    - @Marca: Nueva marca del producto. Es opcional.
+    - @Size: Nuevo tamaño del producto. Es opcional.
+    - @QuantityPerOuter: Nueva cantidad de unidades por paquete exterior. Es opcional.
+    - @TaxRate: Nueva tasa de impuesto del producto. Es opcional.
+    - @UnitPrice: Nuevo precio unitario del producto. Es opcional.
+    - @RecommendedPrice: Nuevo precio de venta recomendado. Es opcional.
+    - @TypicalWeight: Nuevo peso típico por unidad. Es opcional.
+    - @MarketingSearchDetails: Nuevos comentarios de mercadeo del producto. Es opcional.
+    - @BinLocation: Nueva ubicación del producto en el inventario. Es opcional.
+    - @QuantityOnHand: Nueva cantidad disponible del producto. Es opcional.
+    - @Grupos_Productos: Identificadores de los grupos a los que pertenecerá
+      el producto, separados por comas. Es opcional.
   Salidas:
-  Restricciones
+    - Actualiza los datos del producto indicado.
+    - Actualiza la información de inventario del producto.
+    - Actualiza los grupos asociados al producto cuando se proporcionan.
+  Restricciones:
+    - @ID_Producto debe corresponder a un producto existente.
 */
 CREATE PROCEDURE EditarDatosProducto
   @ID_Producto int = NULL,
@@ -361,7 +381,7 @@ BEGIN
     IF @Nombre_Producto is NOT NULL AND EXISTS (
       SELECT 1
       FROM productos p
-      WHERE p.StockItemName = @Nombre_Producto
+      WHERE p.StockItemName = @Nombre_Producto AND p.StockItemID <> @ID_Producto
     )
     BEGIN
       THROW 50018, 'Ya existe un producto con ese nombre', 1
@@ -425,10 +445,19 @@ END
 GO
 
 /*
-
+  Elimina un producto de la base de datos.
   Entradas:
+    - @ID_Producto: Identificador del producto que se desea eliminar.
   Salidas:
-  Restricciones
+    - Elimina el producto indicado de la base de datos.
+  Restricciones:
+    - @ID_Producto debe corresponder a un producto existente.
+    - El producto no puede estar asociado a:
+      - Una orden de compra
+      - Una factura
+      - Orden de cliente
+      - Una oferta especial
+      - Transacciones asociadas
 */
 CREATE PROCEDURE EliminarProducto
   @ID_Producto int

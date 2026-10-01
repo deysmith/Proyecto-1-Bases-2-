@@ -473,9 +473,162 @@ BEGIN
 END
 GO
 
+/*
+  Obtiene el seguimiento de compras por cliente agrupadas por mes y año. Además permite filtrar por
+  año, mes, categoría y subcategoría
+  Entradas:
+    Todas las entradas son opcionales
+    - @ID_Cliente: Identificador del cliente.
+    - @Anio: Año por el cual se desean consultar las compras.
+    - @Mes: Mes por el cual se desean consultar las compras.
+    - @ID_Categoria: Identificador de la categoría del producto.
+    - @ID_Subcategoria: Identificador de la subcategoría del producto.
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
+  Salidas:
+    - Nombre del cliente, año y mes de las compras, fechas de la primera y última factura, cantidad
+      mínima, máxima y total de productos comprados
+  Restricciones:
+    - No posee restricciones
+*/
+CREATE PROCEDURE ObtenerSeguimientoComprasClientes
+  @ID_Cliente int = NULL,
+  @Anio int = NULL,
+  @Mes int = NULL,
+  @ID_Categoria int = NULL,
+  @ID_Subcategoria int = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
+AS
+BEGIN
+  SELECT 
+      c.CustomerName,
+      YEAR(f.InvoiceDate) as Years,
+      MONTH(f.InvoiceDate) as Months,
+      SUM(df.Quantity * df.UnitPrice) as Total,
+      MIN(f.InvoiceDate) as FirstInvoice,
+      MAX(f.InvoiceDate) as LastInvoice,
+      SUM(df.Quantity) as TotalProducts,
+      MIN(df.Quantity) as MinProducts,
+      MAX(df.Quantity) as MaxProducts
+
+  FROM clientes c
+  INNER JOIN facturas f on f.CustomerID = c.CustomerID
+  INNER JOIN detalle_factura df on df.InvoiceID = f.InvoiceID
+  INNER JOIN productos p on p.StockItemID = df.StockItemID
+  WHERE 
+  (
+    @ID_Cliente is NULL
+    OR c.CustomerID = @ID_Cliente 
+  ) AND (
+    @Anio is NULL
+    OR YEAR(f.InvoiceDate) = @Anio
+  ) AND (
+    @Mes is NULL
+    OR MONTH(f.InvoiceDate) = @Mes
+  ) AND (
+    @ID_Categoria is NULL
+    OR EXISTS (
+      SELECT 1
+      FROM grupos_productos
+      WHERE StockItemID = p.StockItemID AND StockGroupID = @ID_Categoria
+    )
+  ) AND (
+    @ID_Subcategoria is NULL
+    OR EXISTS ( 
+      SELECT 1
+      FROM grupos_productos
+      WHERE StockItemID = p.StockItemID AND StockGroupID = @ID_Subcategoria
+    )
+  )
+
+  GROUP BY c.CustomerName, YEAR(f.InvoiceDate), MONTH(f.InvoiceDate)
+  ORDER BY c.CustomerName, YEAR(f.InvoiceDate), MONTH(f.InvoiceDate)
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
+END
+GO
+
+/*
+  Obtiene el seguimiento de compras por proveedor agrupadas por mes y año. Además permite filtrar por
+  año, mes, categoría y subcategoría
+  Entradas:
+    Todas las entradas son opcionales
+    - @ID_Proveedor: Identificador del proveedor.
+    - @Anio: Año por el cual se desean consultar las compras.
+    - @Mes: Mes por el cual se desean consultar las compras.
+    - @ID_Categoria: Identificador de la categoría del producto.
+    - @ID_Subcategoria: Identificador de la subcategoría del producto.
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página.
+  Salidas:
+    - Nombre del proveedor, año y mes de las compras, fechas de la primera y última factura, cantidad
+      mínima, máxima y total de productos comprados
+  Restricciones:
+    - No posee restricciones
+*/
+CREATE PROCEDURE ObtenerSeguimientoComprasProveedores
+  @ID_Proveedor int = NULL,
+  @Anio int = NULL,
+  @Mes int = NULL,
+  @ID_Categoria int = NULL,
+  @ID_Subcategoria int = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
+AS
+BEGIN
+  SELECT
+      p.SupplierName,
+      YEAR(o.OrderDate) as Years,
+      MONTH(o.OrderDate) as Months,
+      SUM(do.OrderedOuters * do.ExpectedUnitPricePerOuter) as Total,
+      MIN(o.OrderDate) as FirstInvoice,
+      MAX(o.OrderDate) as LastInvoice,
+      SUM(do.OrderedOuters) as TotalProducts,
+      MIN(do.OrderedOuters) as MinProducts,
+      MAX(do.OrderedOuters) as MaxProducts
+  FROM proveedores p
+  INNER JOIN ordenes o on o.SupplierID = p.SupplierID
+  INNER JOIN detalle_ordenes do on do.PurchaseOrderID = o.PurchaseOrderID
+  INNER JOIN productos pr on pr.StockItemID = do.StockItemID
+  WHERE 
+  (
+    @ID_Proveedor is NULL
+    OR p.SupplierID = @ID_Proveedor 
+  ) AND (
+    @Anio is NULL
+    OR YEAR(o.OrderDate) = @Anio
+  ) AND (
+    @Mes is NULL
+    OR MONTH(o.OrderDate) = @Mes
+  ) AND (
+    @ID_Categoria is NULL
+    OR EXISTS (
+      SELECT 1
+      FROM grupos_productos
+      WHERE StockItemID = pr.StockItemID AND StockGroupID = @ID_Categoria
+    )
+  ) AND (
+    @ID_Subcategoria is NULL
+    OR EXISTS ( 
+      SELECT 1
+      FROM grupos_productos
+      WHERE StockItemID = pr.StockItemID AND StockGroupID = @ID_Subcategoria
+    )
+  )
+
+  GROUP BY p.SupplierName, YEAR(o.OrderDate), MONTH(o.OrderDate)
+  ORDER BY p.SupplierName, YEAR(o.OrderDate), MONTH(o.OrderDate)
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
+END
+GO
+
 EXECUTE ObtenerDatosCompraProveedores @Categoria = 'Novelty'
 EXECUTE ObtenerDatosVentasCompradores @Nombre_Cliente = 'Toys', @CantidadRegistros = 2000
 EXECUTE ObtenerTopCincoProductos 200
 EXECUTE ObtenerTopCincoClientes  @FinalRango = 2015
 EXECUTE ObtenerTopCincoProveedores
 EXECUTE ResumenDeVentaPorCategoria
+EXECUTE ObtenerSeguimientoComprasClientes @Mes=2
+EXECUTE ObtenerSeguimientoComprasProveedores 

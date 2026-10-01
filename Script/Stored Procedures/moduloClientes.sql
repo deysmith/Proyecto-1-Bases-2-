@@ -232,8 +232,10 @@ Restricciones:
 CREATE PROCEDURE AgregarNuevoCliente
   @Nombre_Cliente nvarchar(100),
   @CategoriaID int,
-  @Nombre_ContactoPrimario nvarchar(50),
-  @Nombre_ContactoSecundario nvarchar(50),
+  @Nombre_ContactoPrimario nvarchar(50) = NULL,
+  @Nombre_ContactoSecundario nvarchar(50) = NULL,
+  @ID_ContactoPrimario int = NULL,
+  @ID_ContactoSecundario int = NULL,
   @MetodoEntregaID int,
   @DeliveryCityID int,
   @PostalCityID int,
@@ -253,8 +255,6 @@ BEGIN
   SET XACT_ABORT ON
   DECLARE @ID_Cliente int
   DECLARE @PersonaEncargadaID int
-  DECLARE @ID_ContactoPrimario int
-  DECLARE @ID_ContactoSecundario int
   
   BEGIN TRY
     BEGIN TRANSACTION
@@ -275,55 +275,85 @@ BEGIN
     FROM personas p 
     WHERE FullName = 'PagWeb'
 
-    SELECT @ID_ContactoPrimario = NEXT VALUE FOR Sequences.PersonID
+    IF @ID_ContactoPrimario is NOT NULL
+    BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM personas p
+          WHERE p.PersonID = @ID_ContactoPrimario
+        )
+      BEGIN
+          THROW 50023, 'La persona indicada como contacto primario no existe', 1;
+      END  
+    END
 
-    INSERT INTO personas (
-        PersonID,
-        FullName,
-        PreferredName,
-        IsPermittedToLogon,
-        IsExternalLogonProvider,
-        IsSystemUser,
-        IsEmployee,
-        IsSalesperson,
-        LastEditedBy
-    )
-    VALUES (
-        @ID_ContactoPrimario,
-        @Nombre_ContactoPrimario,
-        @Nombre_ContactoPrimario,
-        0,
-        0,
-        0,
-        1,
-        0,
-        @PersonaEncargadaID
-    )
+    ELSE IF @Nombre_ContactoPrimario is NOT NULL
+    BEGIN
+      SELECT @ID_ContactoPrimario = NEXT VALUE FOR Sequences.PersonID
 
-    SELECT @ID_ContactoSecundario = NEXT VALUE FOR Sequences.PersonID
+      INSERT INTO personas (
+          PersonID,
+          FullName,
+          PreferredName,
+          IsPermittedToLogon,
+          IsExternalLogonProvider,
+          IsSystemUser,
+          IsEmployee,
+          IsSalesperson,
+          LastEditedBy
+      )
+      VALUES (
+          @ID_ContactoPrimario,
+          @Nombre_ContactoPrimario,
+          @Nombre_ContactoPrimario,
+          0,
+          0,
+          0,
+          1,
+          0,
+          @PersonaEncargadaID
+      )
+    END
 
-    INSERT INTO personas (
-        PersonID,
-        FullName,
-        PreferredName,
-        IsPermittedToLogon,
-        IsExternalLogonProvider,
-        IsSystemUser,
-        IsEmployee,
-        IsSalesperson,
-        LastEditedBy
-    )
-    VALUES (
-        @ID_ContactoSecundario,
-        @Nombre_ContactoSecundario,
-        @Nombre_ContactoSecundario,
-        0,
-        0,
-        0,
-        1,
-        0,
-        @PersonaEncargadaID
-    )
+    IF @ID_ContactoSecundario is NOT NULL
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM personas p
+        WHERE p.PersonID = @ID_ContactoSecundario
+      )
+      BEGIN
+        THROW 50024, 'La persona indicada como contacto secundario no existe', 1 
+      END
+    END
+
+    ELSE IF @Nombre_ContactoSecundario is NOT NULL
+    BEGIN
+      SELECT @ID_ContactoSecundario = NEXT VALUE FOR Sequences.PersonID
+
+      INSERT INTO personas (
+          PersonID,
+          FullName,
+          PreferredName,
+          IsPermittedToLogon,
+          IsExternalLogonProvider,
+          IsSystemUser,
+          IsEmployee,
+          IsSalesperson,
+          LastEditedBy
+      )
+      VALUES (
+          @ID_ContactoSecundario,
+          @Nombre_ContactoSecundario,
+          @Nombre_ContactoSecundario,
+          0,
+          0,
+          0,
+          1,
+          0,
+          @PersonaEncargadaID
+      )
+    END
     
     INSERT INTO clientes (
         CustomerID,
@@ -388,7 +418,6 @@ BEGIN
     )
 
     COMMIT TRANSACTION
-    SELECT @ID_Cliente AS Cliente_ID
 
   END TRY
   BEGIN CATCH
@@ -618,7 +647,7 @@ EXECUTE AgregarNuevoCliente
     @Nombre_Cliente = 'Tryss flores',
     @CategoriaID = 3,
     @Nombre_ContactoPrimario = 'Dey',
-    @Nombre_ContactoSecundario = 'Dey',
+    @ID_ContactoSecundario = 2,
     @MetodoEntregaID = 3,
     @DeliveryCityID = 1,
     @PostalCityID = 1,
@@ -631,9 +660,9 @@ EXECUTE AgregarNuevoCliente
     @PostalPostalCode = '70101',
     @PaymentDays = 7
 -- Ver resultado
-EXECUTE ObtenerDatosClientes 'Tryss flores'
+EXECUTE ObtenerDatosClientes 'Trys flores'
 EXECUTE EditarDatosClientes @ID_Cliente = 1164, @Nombre_Cliente = 'Trys flores'
-EXECUTE BorrarCliente 1164
+EXECUTE BorrarCliente 1212
 
-
-SELECT c.CustomerID from clientes c where c.CustomerName = 'Tailspin Toys (Sylvanite, MT)'
+SELECT p.PersonID from personas p where p.FullName = 'Dey'
+SELECT c.CustomerID from clientes c where c.CustomerName = 'Tryss flores'

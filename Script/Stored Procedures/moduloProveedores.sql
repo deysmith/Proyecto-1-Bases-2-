@@ -213,8 +213,10 @@ Restricciones:
 CREATE PROCEDURE AgregarNuevoProveedor 
   @Nombre_Proveedor nvarchar(100),
   @CategoriaID int,
-  @Nombre_ContactoPrimario nvarchar(50),
-  @Nombre_ContactoSecundario nvarchar(50),
+  @Nombre_ContactoPrimario nvarchar(50) = NULL,
+  @Nombre_ContactoSecundario nvarchar(50) = NULL,
+  @ID_ContactoPrimario int = NULL,
+  @ID_ContactoSecundario int = NULL,
   @MetodoEntegaID int,
   @DeliveryCityID int,
   @PostalCityID int,
@@ -237,8 +239,6 @@ BEGIN
   SET XACT_ABORT ON
   DECLARE @ID_Proveedor int
   DECLARE @PersonaEncargadaID int
-  DECLARE @ID_ContactoPrimario int
-  DECLARE @ID_ContactoSecundario int
 
   BEGIN TRY
     BEGIN TRANSACTION
@@ -259,55 +259,86 @@ BEGIN
     FROM personas p 
     WHERE FullName = 'PagWeb'
 
-    SELECT @ID_ContactoPrimario = NEXT VALUE FOR Sequences.PersonID
+    IF @ID_ContactoPrimario is NOT NULL
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM personas p
+        WHERE p.PersonID = @ID_ContactoPrimario
+      )
+      BEGIN
+        THROW 50023, 'La persona indicada como contacto primario no existe', 1 
+      END
+    END
 
-    INSERT INTO personas (
-        PersonID,
-        FullName,
-        PreferredName,
-        IsPermittedToLogon,
-        IsExternalLogonProvider,
-        IsSystemUser,
-        IsEmployee,
-        IsSalesperson,
-        LastEditedBy
-    )
-    VALUES (
-        @ID_ContactoPrimario,
-        @Nombre_ContactoPrimario,
-        @Nombre_ContactoPrimario,
-        0,
-        0,
-        0,
-        1,
-        0,
-        @PersonaEncargadaID
-    )
+    ELSE IF @Nombre_ContactoPrimario is NOT NULL
+    BEGIN
+      SELECT @ID_ContactoPrimario = NEXT VALUE FOR Sequences.PersonID
 
-    SELECT @ID_ContactoSecundario = NEXT VALUE FOR Sequences.PersonID
+      INSERT INTO personas (
+          PersonID,
+          FullName,
+          PreferredName,
+          IsPermittedToLogon,
+          IsExternalLogonProvider,
+          IsSystemUser,
+          IsEmployee,
+          IsSalesperson,
+          LastEditedBy
+      )
+      VALUES (
+          @ID_ContactoPrimario,
+          @Nombre_ContactoPrimario,
+          @Nombre_ContactoPrimario,
+          0,
+          0,
+          0,
+          1,
+          0,
+          @PersonaEncargadaID
+      )
+      END
 
-    INSERT INTO personas (
-        PersonID,
-        FullName,
-        PreferredName,
-        IsPermittedToLogon,
-        IsExternalLogonProvider,
-        IsSystemUser,
-        IsEmployee,
-        IsSalesperson,
-        LastEditedBy
-    )
-    VALUES (
-        @ID_ContactoSecundario,
-        @Nombre_ContactoSecundario,
-        @Nombre_ContactoSecundario,
-        0,
-        0,
-        0,
-        1,
-        0,
-        @PersonaEncargadaID
-    )
+    IF @ID_ContactoSecundario is NOT NULL
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM personas p
+          WHERE p.PersonID = @ID_ContactoSecundario
+        )
+        BEGIN
+          THROW 50024, 'La persona indicada como contacto secundario no existe', 1 
+        END
+    END
+
+    ELSE IF @Nombre_ContactoSecundario IS NOT NULL
+      BEGIN
+
+      SELECT @ID_ContactoSecundario = NEXT VALUE FOR Sequences.PersonID
+
+      INSERT INTO personas (
+          PersonID,
+          FullName,
+          PreferredName,
+          IsPermittedToLogon,
+          IsExternalLogonProvider,
+          IsSystemUser,
+          IsEmployee,
+          IsSalesperson,
+          LastEditedBy
+      )
+      VALUES (
+          @ID_ContactoSecundario,
+          @Nombre_ContactoSecundario,
+          @Nombre_ContactoSecundario,
+          0,
+          0,
+          0,
+          1,
+          0,
+          @PersonaEncargadaID
+      )
+    END
 
     INSERT INTO proveedores (
       SupplierID,
@@ -361,7 +392,6 @@ BEGIN
     )
 
     COMMIT TRANSACTION
-    SELECT @ID_Proveedor as Proveedor_ID
 
   END TRY
 
@@ -591,10 +621,11 @@ EXECUTE BuscarProveedores No
 EXECUTE ObtenerCategoriasProveedores
 EXECUTE ObtenerDatosProveedor 'A Datum Corporation'
 EXEC AgregarNuevoProveedor 
-  @Nombre_Proveedor = 'Gollos',
+  @Nombre_Proveedor = 'Monge',
   @CategoriaID = 2,
-  @Nombre_ContactoPrimario = 'Ana',
+  @Nombre_ContactoPrimario = NULL,
   @Nombre_ContactoSecundario = 'Luis',
+  @ID_ContactoPrimario = 5,
   @MetodoEntegaID = 1,
   @DeliveryCityID = 1,
   @PostalCityID = 1,
@@ -612,8 +643,9 @@ EXEC AgregarNuevoProveedor
   @PostalPostalCode = '70101',
   @DeliveryAddress2 = NULL,
   @PostalAddress2 = NULL
-EXECUTE ObtenerDatosProveedor 'Gollos'
+EXECUTE ObtenerDatosProveedor 'Monge'
 EXECUTE EditarDatosProveedor @ID_Proveedor = 18, @Nombre_Proveedor = 'Monge'
-EXECUTE BorrarProveedor 10
+EXECUTE BorrarProveedor 64
 
 select p.SupplierID from proveedores p where p.SupplierName = 'Monge'
+delete from personas where FullName = 'Luis'

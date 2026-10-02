@@ -624,6 +624,144 @@ BEGIN
 END
 GO
 
+/* En proceso */
+CREATE PROCEDURE PromedioDiasRotacionProducto
+  @ID_Producto int = NULL,
+  @Anio int = NULL,
+  @ID_Proveedor int = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
+AS
+BEGIN
+
+  WITH VentasPorProducto AS (
+      SELECT 
+          p.StockItemID, 
+          p.StockItemName, 
+          p.SupplierID,
+          pr.SupplierName, 
+          YEAR(f.InvoiceDate) as Years,
+          SUM(df.Quantity) as Quantity,
+          AVG(p.QuantityPerOuter) as QuantityPerOuter
+      FROM productos p 
+      INNER JOIN proveedores pr ON pr.SupplierID = p.SupplierID 
+      INNER JOIN detalle_factura df ON df.StockItemID = p.StockItemID 
+      INNER JOIN facturas f ON f.InvoiceID = df.InvoiceID 
+      GROUP BY p.StockItemID, p.StockItemName, p.SupplierID, pr.SupplierName, YEAR(f.InvoiceDate) 
+  ) 
+  SELECT * 
+  FROM ( 
+      SELECT 
+          ROW_NUMBER() over (order by vp.StockItemName) AS RowNum, 
+          vp.StockItemName, 
+          vp.SupplierName, 
+          vp.Quantity, 
+          vp.QuantityPerOuter, 
+          case  
+          when vp.Quantity = 0 then 0 
+          ELSE CAST((vp.QuantityPerOuter * 365.0) / vp.Quantity as decimal(10,2)) 
+          end AS DiasRotacionPromedio 
+      FROM VentasPorProducto vp 
+      WHERE 
+      (
+        @ID_Producto IS NULL OR vp.StockItemID = @ID_Producto
+      ) AND (
+        @Anio IS NULL 
+        OR vp.Years = @Anio
+      ) AND (
+        @ID_Proveedor IS NULL 
+        OR vp.SupplierID = @ID_Proveedor
+      ) 
+  ) AS Resultado 
+
+  ORDER BY RowNum
+  -- OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  -- FETCH NEXT @CantidadRegistros ROWS ONLY 
+END
+GO
+
+/*
+  Obtiene el método de envío favorito según la ciudad a la que fue remitida
+  la venta, ordenando los resultados por la cantidad de ventas realizadas.
+  Entradas:
+    - @Anio: Año por el cual se desean filtrar las ventas.
+    - @Mes: Mes por el cual se desean filtrar las ventas.
+    - @ID_CategoriaCliente: Identificador de la categoría del cliente.
+    - @ID_CategoriaProducto: Identificador de la categoría del producto.
+    - @ID_Producto: Identificador del producto.
+    - @NumeroPagina: Número de página que se desea consultar.
+    - @CantidadRegistros: Cantidad de registros que se mostrarán por página.
+  Salidas:
+    - CityName: Nombre de la ciudad a la que fue remitida la venta.
+    - DeliveryMethodName: Nombre del método de envío utilizado.
+    - TotalSales: Cantidad de ventas realizadas mediante el método de envío en la ciudad correspondiente.
+  Restricciones:.
+    - No posee restricciones
+*/
+CREATE PROCEDURE MetodoEnvioFavoritoPorCuidad
+    @Anio int = NULL,
+    @Mes int = NULL,
+    @ID_CategoriaCliente int = NULL,
+    @ID_CategoriaProducto int = NULL,
+    @ID_Producto int = NULL,
+    @NumeroPagina int = 1,
+    @CantidadRegistros int = 20
+AS
+BEGIN
+
+  WITH VentasPorMetodo AS(
+      SELECT
+          md.DeliveryMethodName,
+          ci.CityName,
+          COUNT(DISTINCT f.InvoiceID) as TotalSales
+      FROM facturas f
+
+      INNER JOIN metodos_entrega md on md.DeliveryMethodID = f.DeliveryMethodID
+      INNER JOIN clientes c on c.CustomerID = f.CustomerID
+      INNER JOIN detalle_factura df on df.InvoiceID = f.InvoiceID
+      INNER JOIN productos p on p.StockItemID = df.StockItemID
+      INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
+      WHERE 
+      (
+        @Anio IS NULL
+        OR YEAR(f.InvoiceDate) = @Anio
+      ) AND (
+        @Mes IS NULL
+        OR MONTH(f.InvoiceDate) = @Mes
+      ) AND (
+        @ID_CategoriaCliente IS NULL
+        OR c.CustomerCategoryID = @ID_CategoriaCliente
+      ) AND (
+        @ID_Producto IS NULL
+        OR p.StockItemID = @ID_Producto
+      ) AND (
+        @ID_CategoriaProducto IS NULL OR EXISTS (
+          SELECT 1
+          FROM grupos_productos gp
+          WHERE gp.StockItemID = p.StockItemID AND gp.StockGroupID = @ID_CategoriaProducto
+        )
+      )
+      GROUP BY md.DeliveryMethodName, ci.CityName
+    )
+  SELECT *
+  FROM
+  (
+    SELECT
+        ROW_NUMBER() over (order by TotalSales DESC) AS RowNum,
+        CityName,
+        DeliveryMethodName,
+        TotalSales
+    FROM VentasPorMetodo
+  ) AS Result
+
+  ORDER BY RowNum
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
+
+END
+GO
+
+
 EXECUTE ObtenerDatosCompraProveedores @Categoria = 'Novelty'
 EXECUTE ObtenerDatosVentasCompradores @Nombre_Cliente = 'Toys', @CantidadRegistros = 2000
 EXECUTE ObtenerTopCincoProductos 200
@@ -632,3 +770,11 @@ EXECUTE ObtenerTopCincoProveedores
 EXECUTE ResumenDeVentaPorCategoria
 EXECUTE ObtenerSeguimientoComprasClientes @Mes=2
 EXECUTE ObtenerSeguimientoComprasProveedores 
+EXECUTE PromedioDiasRotacionProducto @Anio = 2013
+EXECUTE MetodoEnvioFavoritoPorCuidad @Anio = 2013
+
+select * from transacciones_productos where TransactionTypeID = 1
+select distinct(tt.TransactionTypeName)
+from transacciones_productos tp
+inner join tipos_transacciones tt on tt.TransactionTypeID = tp.TransactionTypeID
+

@@ -1,6 +1,6 @@
 /*
-Este es para el combobox, devuelve todas las categorías, el otro es para el filtro
-El otro es para los filtros, para solo mostrar los que proveedores asociados.
+Este es para el combobox, devuelve todas las categorías.
+El otro es para los filtros, para solo mostrar los que tienen proveedores asociados.
 */
 
 CREATE PROCEDURE ObtenerTodasCategoriasProveedores

@@ -12,8 +12,9 @@ CREATE SYNONYM ordenes_clientes FOR Sales.Orders
 CREATE SYNONYM detalles_ordenes_clientes FOR Sales.OrderLines
 
 CREATE SYNONYM metodos_entrega FOR Application.DeliveryMethods
-CREATE SYNONYM ciudades for Application.Cities
-CREATE SYNONYM personas for Application.People
+CREATE SYNONYM ciudades FOR Application.Cities
+CREATE SYNONYM personas FOR Application.People
+CREATE SYNONYM tipos_transacciones FOR Application.TransactionTypes
 
 CREATE SYNONYM proveedores FOR Purchasing.Suppliers
 CREATE SYNONYM categorias_proveedores FOR Purchasing.SupplierCategories

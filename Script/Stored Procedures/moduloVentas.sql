@@ -319,12 +319,137 @@ BEGIN
 END
 GO
 
+/*
+    Actualiza algunos  datos de una factura existente.
+  Entradas:
+    - @ID_Factura: Identificador de la factura que se desea actualizar.
+    - @DeliveryMethodID: Identificador del método de entrega de la factura.
+    - @DeliveryInstructions: Instrucciones de entrega.
+  Salidas:
+    - Actualiza los datos indicados de la factura.
+  Restricciones:
+    - La factura indicada debe existir.
+*/
+CREATE PROCEDURE EditarDatosFactura
+  @ID_Factura int,
+  @DeliveryMethodID int = NULL,
+  @DeliveryInstructions nvarchar(MAX) = NULL
+AS
+BEGIN
+    SET XACT_ABORT ON
+
+    BEGIN TRY
+      BEGIN TRANSACTION
+      IF NOT EXISTS (
+        SELECT 1
+        FROM facturas
+        WHERE InvoiceID = @ID_Factura
+      )
+      BEGIN
+        THROW 50026, 'La factura indicada no existe', 1
+      END
+
+      UPDATE facturas
+      SET
+          DeliveryMethodID = ISNULL(@DeliveryMethodID, DeliveryMethodID),
+          DeliveryInstructions = ISNULL(@DeliveryInstructions, DeliveryInstructions)
+      WHERE InvoiceID = @ID_Factura
+
+      COMMIT TRANSACTION
+    END TRY
+
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+        SELECT
+            ERROR_NUMBER() AS NumeroError,
+            ERROR_MESSAGE() AS MensajeError,
+            ERROR_LINE() AS LineaError
+    END CATCH
+END
+GO
+
+/*
+  Elimina una factura que no tenga registros relacionados con otras tablas.
+  Entradas:
+    - @ID_Factura: Identificador de la factura que se desea eliminar.
+  Salidas:
+    - Elimina la factura indicada cuando no existen registros relacionados.
+  Restricciones:
+    - La factura indicada debe existir.
+    - No se puede eliminar una factura que tenga:
+      - Transacciones de clientes
+      - Detalles de factura relacionadas.
+      - Transacciones de inventario
+*/
+CREATE PROCEDURE EliminarFactura
+  @ID_Factura int
+AS
+BEGIN
+    SET XACT_ABORT ON
+
+    BEGIN TRY
+        BEGIN TRANSACTION
+
+        IF NOT EXISTS (
+          SELECT 1
+          FROM facturas
+          WHERE InvoiceID = @ID_Factura
+        )
+        BEGIN
+          THROW 50008, 'La factura indicada no existe.', 1
+        END
+
+        IF EXISTS (
+          SELECT 1
+          FROM transacciones_clientes
+          WHERE InvoiceID = @ID_Factura
+        )
+        BEGIN
+          THROW 50027, 'La factura no puede eliminarse porque está relacionada con una transacción de cliente.', 1
+        END
+
+        IF EXISTS (
+          SELECT 1
+          FROM detalle_factura
+          WHERE InvoiceID = @ID_Factura
+        )
+        BEGIN
+          THROW 50027, 'La factura no puede eliminarse porque tiene detalles de factura relacionadas.', 1
+        END
+
+        IF EXISTS (
+            SELECT 1
+            FROM transacciones_productos
+            WHERE InvoiceID = @ID_Factura
+        )
+        BEGIN
+            THROW 50028, 'La factura no puede eliminarse porque está relacionada con transacciones de inventario.', 1
+        END
+
+        DELETE FROM facturas
+        WHERE InvoiceID = @ID_Factura
+
+        COMMIT TRANSACTION
+    END TRY
+
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+        SELECT
+            ERROR_NUMBER() AS NumeroError,
+            ERROR_MESSAGE() AS MensajeError,
+            ERROR_LINE() AS LineaError;
+    END CATCH
+END
+GO
+
 ---------- Pruebas de los Stored Procedures ----------
 EXECUTE GetFacturas
 EXECUTE BuscarFacturas 'Tailspin Toys (Absecon, NJ)'
-EXECUTE ObtenerEncabezadoFactura 1
-EXECUTE ObtenerDetalleFactura 2
-EXEC CrearFactura
+EXECUTE ObtenerEncabezadoFactura 70512
+EXECUTE ObtenerDetalleFactura 70512
+EXECUTE CrearFactura
   @ID_Cliente = 1213,
   @ID_BillToCustomer = 1213,
   @ID_MetodoEntrega = 3,
@@ -334,8 +459,10 @@ EXEC CrearFactura
   @ID_Empacador = 5,
   @ID_Producto = 10,
   @Cantidad = 5
+EXECUTE EditarDatosFactura 70512, @DeliveryInstructions = '200 mts norte'
+EXECUTE EliminarFactura 70512
 
 -- Consultas
-select TOP 10 * from facturas
+select TOP 10 * from facturas where CustomerID = 1213
 select count(*) from facturas
 select TOP 10 * from detalle_factura

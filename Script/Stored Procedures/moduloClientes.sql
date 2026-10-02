@@ -495,7 +495,7 @@ BEGIN
     BEGIN
         THROW 50007, 'El cliente indicado no existe.', 1
     END
-
+    
     IF @Nombre_Cliente is NOT NULL AND EXISTS (
       SELECT 1
       FROM clientes c

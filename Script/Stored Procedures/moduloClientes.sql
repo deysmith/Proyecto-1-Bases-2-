@@ -1,3 +1,6 @@
+USE WideWorldImporters;
+GO
+
 /*
 Devuelve el nombre, categoría y método de entrega de los clientes registrados
 Entradas:
@@ -138,7 +141,8 @@ GO
   - El nombre del cliente debe de coincidir con alguno registrado
 */
 CREATE PROCEDURE ObtenerDatosClientes
-  @Nombre_Cliente nvarchar(100)  --El nombre del cliente es único
+  @Nombre_Cliente nvarchar(100) = NULL,  --El nombre del cliente es único
+  @ID_Cliente int = NULL
 AS
 BEGIN
   SELECT
@@ -187,7 +191,8 @@ BEGIN
   LEFT JOIN personas p1 on p1.PersonID = c.AlternateContactPersonID
   LEFT JOIN grupo_compra gc on gc.BuyingGroupID = c.BuyingGroupID
 
-  WHERE c.CustomerName = @Nombre_Cliente
+  WHERE (@ID_Cliente IS NULL AND c.CustomerName = @Nombre_Cliente)
+     OR (@ID_Cliente IS NOT NULL AND c.CustomerID = @ID_Cliente)
 END
 GO
 

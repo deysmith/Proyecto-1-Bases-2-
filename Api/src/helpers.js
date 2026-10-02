@@ -20,10 +20,14 @@ function hayError(filas) {
   return filas.length > 0 && filas[0].NumeroError !== undefined;
 }
 
+// Códigos de error de los SPs, se van agregando según los módulos
+const codigosNoExiste = [50007, 50011];
+const codigosDuplicado = [50001, 50003, 2627, 2601];
+
 function responderError(res, fila) {
   let estado = 400;
-  if (fila.NumeroError === 50007) estado = 404; // no existe
-  if (fila.NumeroError === 50001 || fila.NumeroError === 2627 || fila.NumeroError === 2601) estado = 409; // nombre repetido
+  if (codigosNoExiste.includes(fila.NumeroError)) estado = 404;
+  if (codigosDuplicado.includes(fila.NumeroError)) estado = 409;
 
   res.status(estado).json({
     ok: false,
@@ -54,4 +58,13 @@ function leerPaginacion(query) {
   return { pagina, cantidad };
 }
 
-module.exports = { ejecutarSP, hayError, responderError, errorServidor, aEntero, leerPaginacion };
+// Convierte el body en la lista de parámetros que espera ejecutarSP
+function armarParametros(campos, body) {
+  return campos.map((campo) => ({
+    nombre: campo.nombre,
+    tipo: campo.tipo,
+    valor: body[campo.nombre]
+  }));
+}
+
+module.exports = { ejecutarSP, hayError, responderError, errorServidor, aEntero, leerPaginacion, armarParametros };

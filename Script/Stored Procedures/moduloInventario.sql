@@ -1,3 +1,6 @@
+USE WideWorldImporters;
+GO
+
 /*
 Se encarga de obtener el nombre, grupos y cantidad en inventario de los productos
 Entradas:

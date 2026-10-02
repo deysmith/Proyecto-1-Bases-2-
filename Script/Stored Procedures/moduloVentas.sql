@@ -1,3 +1,6 @@
+USE WideWorldImporters;
+GO
+
 /*
 Se encarga de devolver el número, fecha y monto de una factura, además del
 nombre del cliente

@@ -1,3 +1,6 @@
+USE WideWorldImporters;
+GO
+
 /*
 Devuelve el nombre, categoría y método de entrega de todos los proveedores
 Entradas:
@@ -14,6 +17,7 @@ CREATE PROCEDURE GetProveedores
 AS
 BEGIN
 SELECT
+    p.SupplierID,
     p.SupplierName,
     c.SupplierCategoryName,
     ISNULL(me.DeliveryMethodName, 'No posee un metodo de entrega estándar') as DeliveryMethodName
@@ -49,6 +53,7 @@ CREATE PROCEDURE BuscarProveedores
 AS
 BEGIN
 SELECT
+    p.SupplierID,
     p.SupplierName,
     c.SupplierCategoryName,
     ISNULL(me.DeliveryMethodName, 'No posee un metodo de entrega estándar') as DeliveryMethodName
@@ -85,7 +90,7 @@ CREATE PROCEDURE ObtenerCategoriasProveedores
 AS
 BEGIN
   SELECT
-      DISTINCT (c.SupplierCategoryName)
+      DISTINCT c.SupplierCategoryName, c.SupplierCategoryID
   FROM categorias_proveedores c
   INNER JOIN proveedores p on p.SupplierCategoryID = c.SupplierCategoryID
 END
@@ -103,7 +108,7 @@ Restricciones:
 CREATE PROCEDURE ObtenerMetodosDeEntregaProveedores
 AS
 BEGIN
-  SELECT DISTINCT (DeliveryMethodName)
+  SELECT DISTINCT me.DeliveryMethodName, me.DeliveryMethodID
   FROM metodos_entrega me
   INNER JOIN proveedores p on p.DeliveryMethodID = me.DeliveryMethodID
 END
@@ -123,10 +128,12 @@ Restricciones:
     -
 */
 CREATE PROCEDURE ObtenerDatosProveedor
-  @Nombre_Proveedor nvarchar(100)
+  @Nombre_Proveedor nvarchar(100) = NULL,
+  @ID_Proveedor int = NULL
 AS
 BEGIN
   SELECT 
+      p.SupplierID,
       ISNULL(p.SupplierReference, 'No indica') as SupplierReference,
       p.SupplierName,
       c.SupplierCategoryName,
@@ -156,7 +163,8 @@ BEGIN
   INNER JOIN ciudades ci on ci.CityID = p.DeliveryCityID
   LEFT JOIN personas pe1 on pe1.PersonID = p.AlternateContactPersonID
   LEFT JOIN metodos_entrega me on me.DeliveryMethodID = p.DeliveryMethodID
-  WHERE p.SupplierName = @Nombre_Proveedor
+  WHERE (@ID_Proveedor IS NULL AND p.SupplierName = @Nombre_Proveedor)
+     OR (@ID_Proveedor IS NOT NULL AND p.SupplierID = @ID_Proveedor)
 END
 GO
 
@@ -229,7 +237,7 @@ CREATE PROCEDURE AgregarNuevoProveedor
   @WebsiteURL nvarchar(265),
   @DeliveryAddress1 nvarchar(60),
   @DeliveryPostalCode nvarchar(10),
-  @DeliveryLocation nvarchar(MAX) = NULL,
+  @DeliveryLocation nvarchar(256) = NULL,
   @PostalAddress1 nvarchar(60),
   @PostalPostalCode nvarchar(10),
   @DeliveryAddress2 nvarchar(60) = NULL,
@@ -392,6 +400,11 @@ BEGIN
     )
 
     COMMIT TRANSACTION
+
+  SELECT
+    @ID_Proveedor AS SupplierID,
+    @ID_ContactoPrimario AS ID_ContactoPrimario,
+    @ID_ContactoSecundario AS ID_ContactoSecundario,
 
   END TRY
 

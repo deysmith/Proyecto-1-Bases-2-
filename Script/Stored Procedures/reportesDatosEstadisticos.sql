@@ -1,3 +1,6 @@
+USE WideWorldImporters;
+GO
+
 /*
   Devuelve las montos más altos, bajos y compra promedio que se le hace a los proveedores, agrupando
   los resultados por nombre del proveedor y categoría, además, permite el filtrado mediante estos mismos

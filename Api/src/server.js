@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const rutasGenerales = require('./routes/generales');
 const rutasClientes = require('./routes/clientes');
+const rutasProveedores = require('./routes/proveedores');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/generales', rutasGenerales);
 app.use('/api/clientes', rutasClientes);
+app.use('/api/proveedores', rutasProveedores);
 
 const puerto = process.env.PORT || 3000;
 app.listen(puerto, () => {

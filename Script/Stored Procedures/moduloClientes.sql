@@ -17,6 +17,7 @@ AS
 BEGIN
   
   SELECT
+      c.CustomerID,
       c.CustomerName,
       cc.CustomerCategoryName,
       me.DeliveryMethodName,
@@ -58,6 +59,7 @@ CREATE PROCEDURE BuscarFiltrarClientes
 AS
 BEGIN
   SELECT
+      c.CustomerID,
       c.CustomerName,
       cc.CustomerCategoryName,
       me.DeliveryMethodName,
@@ -140,6 +142,7 @@ CREATE PROCEDURE ObtenerDatosClientes
 AS
 BEGIN
   SELECT
+      c.CustomerID,
       c.CustomerName,
       cc.CustomerCategoryName,
 

@@ -18,6 +18,7 @@ CREATE PROCEDURE GetProductos
 AS
 BEGIN
   SELECT
+      p.StockItemID,
       p.StockItemName,
       STRING_AGG(np.StockGroupName, ', ') as [Group],
       ip.QuantityOnHand
@@ -26,7 +27,7 @@ BEGIN
   LEFT JOIN inventario_productos ip on ip.StockItemID = p.StockItemID
   LEFT JOIN grupos_productos gp on gp.StockItemID = p.StockItemID
   LEFT JOIN nombre_grupo_producto np on np.StockGroupID = gp.StockGroupID
-  GROUP BY p.StockItemName, ip.QuantityOnHand
+  GROUP BY p.StockItemID, p.StockItemName, ip.QuantityOnHand
   ORDER BY p.StockItemName ASC
   OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
   FETCH NEXT @CantidadRegistros ROWS ONLY
@@ -60,6 +61,7 @@ CREATE PROCEDURE BuscarProductos
 AS
 BEGIN
   SELECT
+      p.StockItemID,
       p.StockItemName,
       STRING_AGG(np.StockGroupName, ', ') as [Group],
       ip.QuantityOnHand
@@ -74,7 +76,11 @@ BEGIN
     OR p.StockItemName LIKE '%' + @Nombre + '%'
   ) AND (
     @GrupoID IS NULL
-    OR gp.StockGroupID = @GrupoID
+    OR EXISTS (
+      SELECT 1
+      FROM grupos_productos g
+      WHERE g.StockItemID = p.StockItemID AND g.StockGroupID = @GrupoID
+    )
   ) AND (
     @CantidadMinima IS NULL
     OR ip.QuantityOnHand >= @CantidadMinima
@@ -83,7 +89,7 @@ BEGIN
     OR ip.QuantityOnHand <= @CantidadMaxima 
   )
 
-  GROUP BY p.StockItemName, ip.QuantityOnHand
+  GROUP BY p.StockItemID, p.StockItemName, ip.QuantityOnHand
   ORDER BY p.StockItemName ASC
   OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
   FETCH NEXT @CantidadRegistros ROWS ONLY
@@ -121,25 +127,34 @@ Restricciones:
   - El nombre del producto debe coincidir exactamente con un producto registrado.
 */
 CREATE PROCEDURE ObtenerDatosProducto
-  @Nombre_Producto nvarchar(100)
+  @Nombre_Producto nvarchar(100) = NULL,
+  @ID_Producto int = NULL
 AS
 BEGIN
   SELECT
+    p.StockItemID,
     p.StockItemName,
+    p.SupplierID,
     pr.SupplierName,
+    p.ColorID,
     ISNULL(c.ColorName, 'No posee color registrado') as Color,
+    p.UnitPackageID,
     tp.PackageTypeName as UnitPackage,
+    p.OuterPackageID,
     tp1.PackageTypeName as OuterPackage,
     p.QuantityPerOuter,
     ISNULL(p.Brand, 'No posee marca') as Brand,
     ISNULL(p.Size, 'No indica tamaño') as Size,
     p.TaxRate,
     p.UnitPrice,
-    ISNULL(CAST(p.RecommendedRetailPrice as nvarchar(25)), 'No indica'),
+    ISNULL(CAST(p.RecommendedRetailPrice as nvarchar(25)), 'No indica') as RecommendedRetailPrice,
     p.TypicalWeightPerUnit,
     ip.QuantityOnHand,
     ip.BinLocation,
-    p.SearchDetails
+    p.SearchDetails,
+    (SELECT STRING_AGG(CAST(g.StockGroupID AS nvarchar(10)), ',')
+     FROM grupos_productos g
+     WHERE g.StockItemID = p.StockItemID) AS GruposIDs
 
   FROM productos p
   INNER JOIN proveedores pr on pr.SupplierID = p.SupplierID
@@ -147,7 +162,8 @@ BEGIN
   INNER JOIN tipos_paquetes_productos tp1 on tp1.PackageTypeID = p.OuterPackageID
   LEFT JOIN inventario_productos ip on ip.StockItemID = p.StockItemID
   LEFT JOIN colores_productos c on c.ColorID = p.ColorID
-  WHERE p.StockItemName = @Nombre_Producto
+  WHERE (@ID_Producto IS NULL AND p.StockItemName = @Nombre_Producto)
+     OR (@ID_Producto IS NOT NULL AND p.StockItemID = @ID_Producto)
 END
 GO
 
@@ -307,6 +323,8 @@ BEGIN
 
     COMMIT TRANSACTION
 
+    SELECT @ID_Producto AS StockItemID
+
   END TRY
 
   BEGIN CATCH
@@ -363,7 +381,7 @@ CREATE PROCEDURE EditarDatosProducto
   @MarketingSearchDetails nvarchar(MAX) = NULL,
   @BinLocation nvarchar(20) = NULL,
   @QuantityOnHand int = NULL,
-  @Grupos_Productos nvarchar(100)
+  @Grupos_Productos nvarchar(100) = NULL
 AS
 BEGIN
   SET XACT_ABORT ON
@@ -398,6 +416,7 @@ BEGIN
       OuterPackageID = ISNULL(@OuterPackageID, OuterPackageID),
       UnitPrice = ISNULL(@UnitPrice, UnitPrice),
       Brand = ISNULL(@Marca, Brand),
+      Size = ISNULL(@Size, Size),
       QuantityPerOuter = ISNULL(@QuantityPerOuter, QuantityPerOuter),
       TaxRate = ISNULL(@TaxRate, TaxRate),
       RecommendedRetailPrice = ISNULL(@RecommendedPrice, RecommendedRetailPrice),

@@ -22,14 +22,15 @@ BEGIN
     f.InvoiceID,
     c.CustomerName,
     f.InvoiceDate,
+    me.DeliveryMethodName,
     SUM(df.ExtendedPrice) as Price
 
   FROM facturas f
   INNER JOIN clientes c on c.CustomerID = f.CustomerID
   INNER JOIN metodos_entrega me on me.DeliveryMethodID = f.DeliveryMethodID
   INNER JOIN detalle_factura df on df.InvoiceID = f.InvoiceID
-  GROUP BY f.InvoiceID, c.CustomerName, f.InvoiceDate 
-  ORDER BY c.CustomerName ASC
+  GROUP BY f.InvoiceID, c.CustomerName, f.InvoiceDate, me.DeliveryMethodName
+  ORDER BY c.CustomerName ASC, f.InvoiceID ASC
   OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
   FETCH NEXT @CantidadRegistros ROWS ONLY
 END
@@ -54,20 +55,20 @@ Restricciones:
   - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
 CREATE PROCEDURE BuscarFacturas
-  @Nombre_Cliente NVARCHAR(100) = NULL,
-  @FechaInicio DATE = NULL,
-  @FechaFin DATE = NULL,
-  @MontoMinimo DECIMAL(18,2) = NULL,
-  @MontoMaximo DECIMAL(18,2) = NULL,
-  @NumeroPagina INT = 1,
-  @CantidadRegistros INT = 20
-
+  @Nombre_Cliente nvarchar(100) = NULL,
+  @FechaInicio date = NULL,
+  @FechaFin date = NULL,
+  @MontoMinimo decimal(18,2) = NULL,
+  @MontoMaximo decimal(18,2) = NULL,
+  @NumeroPagina int = 1,
+  @CantidadRegistros int = 20
 AS
 BEGIN
   SELECT
     f.InvoiceID,
     c.CustomerName,
     f.InvoiceDate,
+    me.DeliveryMethodName,
     SUM(df.ExtendedPrice) as Price
 
   FROM facturas f
@@ -86,7 +87,7 @@ BEGIN
     OR f.InvoiceDate <= @FechaFin
   )
 
-  GROUP BY f.InvoiceID, c.CustomerName, f.InvoiceDate
+  GROUP BY f.InvoiceID, c.CustomerName, f.InvoiceDate, me.DeliveryMethodName
   
   HAVING (
     @MontoMinimo IS NULL
@@ -95,14 +96,16 @@ BEGIN
     @MontoMaximo IS NULL
     OR SUM(df.ExtendedPrice) <= @MontoMaximo
     )
-  ORDER BY c.CustomerName ASC
+  ORDER BY c.CustomerName ASC, f.InvoiceID ASC
+  OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+  FETCH NEXT @CantidadRegistros ROWS ONLY
 END
 GO
 
 /*
 Devuelve los datos correspondientes al encabezado de una factura
 Entradas:
-  - @Factura_ID - int: Número de la factura a consultar
+  - @Numero_Factura - int: Número de la factura a consultar
 Salidas:
   - Los siguientes datos: número de factura, nombre del cliente, método de entrega,
     número de orden asociada, persona de contacto, vendedor, fecha de la factura e
@@ -116,11 +119,18 @@ AS
 BEGIN
   SELECT
     f.InvoiceID,
+    f.CustomerID,
     c.CustomerName,
+    f.BillToCustomerID,
+    f.DeliveryMethodID,
     me.DeliveryMethodName,
-    ISNULL(CAST(f.OrderID as nvarchar(20)), 'No se encuentra asociado a una orden') as OrderID,
+    ISNULL(f.CustomerPurchaseOrderNumber, 'No posee número de orden') as CustomerPurchaseOrderNumber,
+    f.ContactPersonID,
     p.FullName as ContactPerson,
+    f.AccountsPersonID,
+    f.SalespersonPersonID,
     p1.FullName as SalesPerson,
+    f.PackedByPersonID,
     f.InvoiceDate,
     ISNULL(f.DeliveryInstructions, 'No posee instrucciones de entrega') as DeliveryInstructions
 
@@ -129,7 +139,6 @@ BEGIN
   INNER JOIN metodos_entrega me on me.DeliveryMethodID = f.DeliveryMethodID
   INNER JOIN personas p on p.PersonID = f.ContactPersonID
   INNER JOIN personas p1 on p1.PersonID = f.SalespersonPersonID
-  INNER JOIN detalle_factura df on df.InvoiceID = f.InvoiceID
   WHERE f.InvoiceID = @Numero_Factura
 END
 GO
@@ -137,7 +146,7 @@ GO
 /*
 Devuelve los datos correspondientes al detalle de una factura
 Entradas:
-  - @Factura_ID - int: Número de la factura a consultar
+  - @Numero_Factura - int: Número de la factura a consultar
 Salidas:
   - Los siguientes datos: Nombre del producto, cantidad, precio unitario, impuesto
   aplicado, monto del impuesto total por linea
@@ -149,9 +158,10 @@ CREATE PROCEDURE ObtenerDetalleFactura
 AS
 BEGIN
   SELECT
+    df.StockItemID,
     p.StockItemName,
     df.Quantity,
-    p.UnitPrice,
+    df.UnitPrice,
     df.TaxRate,
     df.TaxAmount,
     df.ExtendedPrice
@@ -190,7 +200,8 @@ CREATE PROCEDURE CrearFactura
   @ID_Vendedor int,
   @ID_Empacador int,
   @ID_Producto int,
-  @Cantidad int
+  @Cantidad int,
+  @DeliveryInstructions nvarchar(MAX) = NULL
 AS
 BEGIN
   SET XACT_ABORT ON
@@ -238,8 +249,8 @@ BEGIN
     FROM productos
     WHERE StockItemID = @ID_Producto
 
-    SET @ExtendedPrice = @Cantidad * @UnitPrice
-    SET @Tax = @ExtendedPrice * (@TaxRate / 100)
+    SET @Tax = @Cantidad * @UnitPrice * (@TaxRate / 100)
+    SET @ExtendedPrice = (@Cantidad * @UnitPrice) + @Tax
 
     SELECT @ID_Factura = NEXT VALUE FOR Sequences.InvoiceID
 
@@ -257,7 +268,8 @@ BEGIN
       IsCreditNote,
       TotalDryItems,
       TotalChillerItems,
-      LastEditedBy
+      LastEditedBy,
+      DeliveryInstructions
     )
     VALUES (
       @ID_Factura,
@@ -273,7 +285,8 @@ BEGIN
       0,
       @Cantidad,
       0,
-      @PersonaEncargadaID
+      @PersonaEncargadaID,
+      @DeliveryInstructions
     )
 
     INSERT INTO detalle_factura (
@@ -308,6 +321,8 @@ BEGIN
 
     COMMIT TRANSACTION
 
+    SELECT @ID_Factura AS InvoiceID
+
   END TRY
 
   BEGIN CATCH
@@ -323,11 +338,18 @@ END
 GO
 
 /*
-    Actualiza algunos  datos de una factura existente.
+  Permite actualizar los datos del encabezado de una factura existente.
   Entradas:
     - @ID_Factura: Identificador de la factura que se desea actualizar.
-    - @DeliveryMethodID: Identificador del método de entrega de la factura.
-    - @DeliveryInstructions: Instrucciones de entrega.
+    Las siguientes entradas son opcionales
+    - @ID_Cliente: Identificador del cliente de la factura.
+    - @ID_BillToCustomer: Identificador del cliente al que se factura.
+    - @ID_MetodoEntrega: Identificador del método de entrega de la factura.
+    - @ID_PersonaContacto: Identificador de la persona de contacto.
+    - @ID_PersonaCuenta: Identificador de la persona encargada de la cuenta.
+    - @ID_Vendedor: Identificador del vendedor asignado a la factura.
+    - @ID_Empacador: Identificador de la persona encargada de empacar.
+    - @DeliveryInstructions: Instrucciones relacionadas con la entrega
   Salidas:
     - Actualiza los datos indicados de la factura.
   Restricciones:
@@ -335,7 +357,13 @@ GO
 */
 CREATE PROCEDURE EditarDatosFactura
   @ID_Factura int,
-  @DeliveryMethodID int = NULL,
+  @ID_Cliente int = NULL,
+  @ID_BillToCustomer int = NULL,
+  @ID_MetodoEntrega int = NULL,
+  @ID_PersonaContacto int = NULL,
+  @ID_PersonaCuenta int = NULL,
+  @ID_Vendedor int = NULL,
+  @ID_Empacador int = NULL,
   @DeliveryInstructions nvarchar(MAX) = NULL
 AS
 BEGIN
@@ -353,17 +381,24 @@ BEGIN
       END
 
       UPDATE facturas
-      SET
-          DeliveryMethodID = ISNULL(@DeliveryMethodID, DeliveryMethodID),
-          DeliveryInstructions = ISNULL(@DeliveryInstructions, DeliveryInstructions)
-      WHERE InvoiceID = @ID_Factura
+        SET
+            CustomerID = ISNULL(@ID_Cliente, CustomerID),
+            BillToCustomerID = ISNULL(@ID_BillToCustomer, BillToCustomerID),
+            DeliveryMethodID = ISNULL(@ID_MetodoEntrega, DeliveryMethodID),
+            ContactPersonID = ISNULL(@ID_PersonaContacto, ContactPersonID),
+            AccountsPersonID = ISNULL(@ID_PersonaCuenta, AccountsPersonID),
+            SalespersonPersonID = ISNULL(@ID_Vendedor, SalespersonPersonID),
+            PackedByPersonID = ISNULL(@ID_Empacador, PackedByPersonID),
+            DeliveryInstructions = ISNULL(@DeliveryInstructions, DeliveryInstructions)
+        WHERE InvoiceID = @ID_Factura
 
-      COMMIT TRANSACTION
+        COMMIT TRANSACTION
     END TRY
 
     BEGIN CATCH
         IF XACT_STATE() <> 0
             ROLLBACK TRANSACTION;
+
         SELECT
             ERROR_NUMBER() AS NumeroError,
             ERROR_MESSAGE() AS MensajeError,
@@ -400,7 +435,7 @@ BEGIN
           WHERE InvoiceID = @ID_Factura
         )
         BEGIN
-          THROW 50008, 'La factura indicada no existe.', 1
+          THROW 50026, 'La factura indicada no existe.', 1
         END
 
         IF EXISTS (
@@ -413,15 +448,6 @@ BEGIN
         END
 
         IF EXISTS (
-          SELECT 1
-          FROM detalle_factura
-          WHERE InvoiceID = @ID_Factura
-        )
-        BEGIN
-          THROW 50027, 'La factura no puede eliminarse porque tiene detalles de factura relacionadas.', 1
-        END
-
-        IF EXISTS (
             SELECT 1
             FROM transacciones_productos
             WHERE InvoiceID = @ID_Factura
@@ -429,6 +455,9 @@ BEGIN
         BEGIN
             THROW 50028, 'La factura no puede eliminarse porque está relacionada con transacciones de inventario.', 1
         END
+
+        DELETE FROM detalle_factura
+        WHERE InvoiceID = @ID_Factura
 
         DELETE FROM facturas
         WHERE InvoiceID = @ID_Factura
@@ -462,7 +491,7 @@ EXECUTE CrearFactura
   @ID_Empacador = 5,
   @ID_Producto = 10,
   @Cantidad = 5
-EXECUTE EditarDatosFactura 70512, @DeliveryInstructions = '200 mts norte'
+EXECUTE EditarDatosFactura 70512, @DeliveryInstructions = '200 mts norte y 300 mts sur'
 EXECUTE EliminarFactura 70512
 
 -- Consultas

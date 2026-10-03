@@ -1,6 +1,3 @@
-USE WideWorldImporters;
-GO
-
 /*
   Devuelve las montos más altos, bajos y compra promedio que se le hace a los proveedores, agrupando
   los resultados por nombre del proveedor y categoría, además, permite el filtrado mediante estos mismos
@@ -163,7 +160,6 @@ BEGIN
     FROM facturas f
     WHERE YEAR(InvoiceDate) = @InicioRango
   )
-
   BEGIN
     THROW 50004, 'No existen registros con el año indicado', 1
   END
@@ -174,7 +170,6 @@ BEGIN
     FROM facturas f
     WHERE YEAR(InvoiceDate) = @FinalRango
   )
-
   BEGIN
     THROW 50005, 'No existen registros con el año indicado', 1
   END
@@ -185,18 +180,14 @@ BEGIN
     FROM facturas f
     WHERE YEAR(InvoiceDate) >= @InicioRango
   )
-
   BEGIN
     THROW 50006, 'El año inicial no existe en la base de datos', 1
-  END;
-
-  BEGIN
-    THROW 50005, 'El año inicial no existe en la base de datos', 1
   END;
 
   WITH VentasPorAnioProducto AS (
     SELECT 
       p.StockItemName,
+      -- Si se desea calcular la ganancia, se puede restar el costo del producto al precio de venta.
       SUM(df.Quantity * df.UnitPrice) as Earnings,
       YEAR(f.InvoiceDate) as Years,
       DENSE_RANK() OVER (partition by YEAR(f.InvoiceDate) order by SUM(df.Quantity * df.UnitPrice) desc) as Rank
@@ -225,10 +216,11 @@ BEGIN
   SELECT 
     vp.StockItemName,
     vp.Years,
+    vp.Earnings,
     vp.[Rank]
   FROM VentasPorAnioProducto vp
-  WHERE vp.RANK <= 5
-  ORDER BY vp.StockItemName, vp.Years, vp.[Rank]
+  WHERE vp.[Rank] <= 5
+  ORDER BY vp.Years, vp.[Rank], vp.StockItemName
   OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
   FETCH NEXT @CantidadRegistros ROWS ONLY
 END
@@ -360,8 +352,8 @@ BEGIN
   IF @InicioRango is not NULL AND @FinalRango is NULL 
   AND NOT EXISTS (
     SELECT 1
-    FROM facturas f
-    WHERE YEAR(InvoiceDate) = @InicioRango
+    FROM ordenes o
+    WHERE YEAR(o.OrderDate) = @InicioRango
   )
 
   BEGIN
@@ -371,8 +363,8 @@ BEGIN
   IF @InicioRango is NULL AND @FinalRango is not NULL 
   AND NOT EXISTS (
     SELECT 1
-    FROM facturas f
-    WHERE YEAR(InvoiceDate) = @FinalRango
+    FROM ordenes o
+    WHERE YEAR(o.OrderDate) = @FinalRango
   )
 
   BEGIN
@@ -382,8 +374,8 @@ BEGIN
   IF @InicioRango is not NULL AND @FinalRango is not NULL 
   AND NOT EXISTS (
     SELECT 1
-    FROM facturas f
-    WHERE YEAR(InvoiceDate) >= @InicioRango
+    FROM ordenes o
+    WHERE YEAR(o.OrderDate) >= @InicioRango
   )
 
   BEGIN
@@ -443,13 +435,14 @@ GO
     - No posee restricciones
 */
 CREATE PROCEDURE ResumenDeVentaPorCategoria
+WITH EXECUTE AS OWNER
 AS
 BEGIN
 
   DECLARE @columnas as nvarchar(MAX)
   DECLARE @consulta as nvarchar(MAX)
 
-  SELECT @columnas = STRING_AGG(QUOTENAME(Anios.Anio), ',') 
+  SELECT @columnas = STRING_AGG(QUOTENAME(Anios.Anio), ',') WITHIN GROUP (ORDER BY Anios.Anio)
   FROM (SELECT DISTINCT (YEAR(f.InvoiceDate)) as Anio  FROM facturas f) as Anios
 
   SET @consulta = '
@@ -627,59 +620,119 @@ BEGIN
 END
 GO
 
-/* En proceso */
+/*
+  Al final, se terminó calculando la rotación de inventario de los clientes a partir de la cantidad vendida
+  de los detalles de las facturas y del inventario promedio obtenido de las transacciones de los productos.
+  La rotación se calcula tomando el inventario promedio, multiplicándolo por los días del año
+  y dividiéndolo entre la cantidad de productos vendidos.
+*/
+/*
+  Obtiene el promedio de días de rotación del inventario por producto, considerando las cantidades vendidas y el inventario promedio registrado
+  mediante las transacciones del producto.
+  Entradas:
+    - @ID_Producto: Identificador del producto por el cual se desea filtrar.
+    Los siguientes parámetros son opcionales
+    - @Anio: Año por el cual se desean consultar las ventas y movimientos de inventario. 
+    - @ID_Proveedor: Identificador del proveedor por el cual se desea filtrar. 
+    - @ID_CategoriaProducto: Identificador de la categoría del producto por la cual se desea filtrar.
+    - @NumeroPagina - Número de página que se desea consultar. 
+    - @CantidadRegistros - Cantidad de registros que se mostrarán por página..
+  Salidas:
+    - StockItemName: Nombre del producto.
+    - SupplierName: Nombre del proveedor del producto.
+    - Years: Año correspondiente a las ventas del producto.
+    - DiasRotacionPromedio: Promedio de días de rotación del producto,
+      calculado a partir del inventario promedio y las unidades vendidas.
+  Restricciones:
+    - Si no existen unidades vendidas, el resultado de días de rotación se muestra como NULL.
+*/
 CREATE PROCEDURE PromedioDiasRotacionProducto
-  @ID_Producto int = NULL,
-  @Anio int = NULL,
-  @ID_Proveedor int = NULL,
-  @NumeroPagina int = 1,
-  @CantidadRegistros int = 20
+    @ID_Producto int = NULL,
+    @Anio int = NULL,
+    @ID_Proveedor int = NULL,
+    @ID_CategoriaProducto int = NULL,
+    @NumeroPagina int = 1,
+    @CantidadRegistros int = 20
 AS
 BEGIN
 
-  WITH VentasPorProducto AS (
-      SELECT 
-          p.StockItemID, 
-          p.StockItemName, 
-          p.SupplierID,
-          pr.SupplierName, 
-          YEAR(f.InvoiceDate) as Years,
-          SUM(df.Quantity) as Quantity,
-          AVG(p.QuantityPerOuter) as QuantityPerOuter
-      FROM productos p 
-      INNER JOIN proveedores pr ON pr.SupplierID = p.SupplierID 
-      INNER JOIN detalle_factura df ON df.StockItemID = p.StockItemID 
-      INNER JOIN facturas f ON f.InvoiceID = df.InvoiceID 
-      GROUP BY p.StockItemID, p.StockItemName, p.SupplierID, pr.SupplierName, YEAR(f.InvoiceDate) 
-  ) 
-  SELECT * 
-  FROM ( 
-      SELECT 
-          ROW_NUMBER() over (order by vp.StockItemName) AS RowNum, 
-          vp.StockItemName, 
-          vp.SupplierName, 
-          vp.Quantity, 
-          vp.QuantityPerOuter, 
-          case  
-          when vp.Quantity = 0 then 0 
-          ELSE CAST((vp.QuantityPerOuter * 365.0) / vp.Quantity as decimal(10,2)) 
-          end AS DiasRotacionPromedio 
-      FROM VentasPorProducto vp 
-      WHERE 
-      (
-        @ID_Producto IS NULL OR vp.StockItemID = @ID_Producto
-      ) AND (
-        @Anio IS NULL 
-        OR vp.Years = @Anio
-      ) AND (
-        @ID_Proveedor IS NULL 
-        OR vp.SupplierID = @ID_Proveedor
-      ) 
-  ) AS Resultado 
+    WITH VentasPorProducto AS
+    (
+        SELECT
+            p.StockItemID,
+            p.StockItemName,
+            p.SupplierID,
+            pr.SupplierName,
+            YEAR(f.InvoiceDate) AS Years,
+            SUM(df.Quantity) AS Quantity
+        FROM productos p
 
-  ORDER BY RowNum
-  -- OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
-  -- FETCH NEXT @CantidadRegistros ROWS ONLY 
+        INNER JOIN proveedores pr on pr.SupplierID = p.SupplierID
+        INNER JOIN detalle_factura df on df.StockItemID = p.StockItemID
+        INNER JOIN facturas f on f.InvoiceID = df.InvoiceID
+
+        WHERE
+        (
+          @Anio IS NULL
+          OR YEAR(f.InvoiceDate) = @Anio
+        ) AND (
+          @ID_Producto IS NULL
+          OR p.StockItemID = @ID_Producto
+        ) AND (
+          @ID_Proveedor IS NULL
+          OR p.SupplierID = @ID_Proveedor
+        ) AND (
+          @ID_CategoriaProducto IS NULL OR EXISTS
+            (
+              SELECT 1
+              FROM grupos_productos gp
+              WHERE gp.StockItemID = p.StockItemID AND gp.StockGroupID = @ID_CategoriaProducto
+            )
+        )
+
+        GROUP BY p.StockItemID, p.StockItemName, p.SupplierID, pr.SupplierName, YEAR(f.InvoiceDate)
+    ),
+
+    InventarioPorProducto AS
+    (
+        SELECT
+            tp.StockItemID,
+            AVG(ABS(tp.Quantity)) AS InventarioPromedio
+        FROM transacciones_productos tp
+
+        WHERE @Anio IS NULL OR YEAR(tp.TransactionOccurredWhen) = @Anio
+        GROUP BY tp.StockItemID
+    )
+
+    SELECT
+        StockItemName,
+        SupplierName,
+        Years,
+        DiasRotacionPromedio
+
+    FROM
+    (
+        SELECT
+            ROW_NUMBER() OVER (order by vp.StockItemName ASC, vp.Years ASC) as RowNum,
+            vp.StockItemName,
+            vp.SupplierName,
+            vp.Years,
+            vp.Quantity,
+            ISNULL(ip.InventarioPromedio, 0) as InventarioPromedio,
+
+            case
+            when ISNULL(vp.Quantity, 0) = 0 then NULL
+            else CAST((ISNULL(ip.InventarioPromedio, 0) * 365.0) / vp.Quantity as decimal (10,2))
+            END AS DiasRotacionPromedio
+
+        FROM VentasPorProducto vp
+        LEFT JOIN InventarioPorProducto ip on ip.StockItemID = vp.StockItemID
+    ) AS Resultado
+
+    ORDER BY RowNum
+    OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
+    FETCH NEXT @CantidadRegistros ROWS ONLY
+
 END
 GO
 
@@ -745,19 +798,19 @@ BEGIN
         )
       )
       GROUP BY md.DeliveryMethodName, ci.CityName
-    )
-  SELECT *
-  FROM
-  (
+    ),
+  Favoritos AS (
     SELECT
-        ROW_NUMBER() over (order by TotalSales DESC) AS RowNum,
         CityName,
         DeliveryMethodName,
-        TotalSales
+        TotalSales,
+        ROW_NUMBER() OVER (PARTITION BY CityName ORDER BY TotalSales DESC, DeliveryMethodName) AS Posicion
     FROM VentasPorMetodo
-  ) AS Result
-
-  ORDER BY RowNum
+  )
+  SELECT CityName, DeliveryMethodName, TotalSales
+  FROM Favoritos
+  WHERE Posicion = 1
+  ORDER BY TotalSales DESC, CityName
   OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
   FETCH NEXT @CantidadRegistros ROWS ONLY
 

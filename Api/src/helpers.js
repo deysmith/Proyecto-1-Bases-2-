@@ -21,8 +21,8 @@ function hayError(filas) {
 }
 
 // Códigos de error de los SPs, se van agregando según los módulos
-const codigosNoExiste = [50007, 50011];
-const codigosDuplicado = [50001, 50003, 2627, 2601];
+const codigosNoExiste = [50007, 50011, 50017, 50026];
+const codigosDuplicado = [50001, 50002, 50003, 50018, 2627, 2601];
 
 function responderError(res, fila) {
   let estado = 400;
@@ -37,6 +37,11 @@ function responderError(res, fila) {
 }
 
 function errorServidor(res, error) {
+  // Los THROW de los SPs (50000 en adelante) son errores de validación, no del servidor
+  if (error.number >= 50000 && error.number < 60000) {
+    return res.status(400).json({ ok: false, codigo: error.number, error: error.message });
+  }
+
   console.log(error);
   res.status(500).json({ ok: false, error: error.message });
 }
@@ -44,6 +49,12 @@ function errorServidor(res, error) {
 // Se convierte texto a entero, si no se puede devuelve undefined
 function aEntero(valor) {
   const numero = parseInt(valor);
+  return isNaN(numero) ? undefined : numero;
+}
+
+// Convierte texto a decimal, si no se puede devuelve undefined
+function aDecimal(valor) {
+  const numero = parseFloat(valor);
   return isNaN(numero) ? undefined : numero;
 }
 
@@ -67,4 +78,4 @@ function armarParametros(campos, body) {
   }));
 }
 
-module.exports = { ejecutarSP, hayError, responderError, errorServidor, aEntero, leerPaginacion, armarParametros };
+module.exports = { ejecutarSP, hayError, responderError, errorServidor, aEntero, aDecimal, leerPaginacion, armarParametros };

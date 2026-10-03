@@ -176,16 +176,27 @@ BEGIN
           'Entrega (Delivery): ',
           c.DeliveryAddressLine1, 
           ISNULL( ', ' +  c.DeliveryAddressLine2, ''), 
-          ' - Postal',
+          ' - Postal: ',
           c.PostalAddressLine1, 
           ISNULL(', ' + c.PostalAddressLine2, '')) as Address,
-      c.DeliveryLocation
+      c.DeliveryLocation,
+      c.CustomerCategoryID,
+      c.DeliveryMethodID,
+      c.DeliveryCityID,
+      c.PostalCityID,
+      cp.CityName AS PostalCityName,
+      c.DeliveryAddressLine1,
+      c.DeliveryAddressLine2,
+      c.PostalAddressLine1,
+      c.PostalAddressLine2,
+      c.PostalPostalCode
 
   FROM clientes c
   INNER JOIN categorias_clientes cc on cc.CustomerCategoryID = c.CustomerCategoryID
   INNER JOIN personas p on p.PersonID = c.PrimaryContactPersonID
-  INNER JOIN  metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
+  INNER JOIN metodos_entrega me on me.DeliveryMethodID = c.DeliveryMethodID
   INNER JOIN ciudades ci on ci.CityID = c.DeliveryCityID
+  INNER JOIN ciudades cp on cp.CityID = c.PostalCityID
   LEFT JOIN personas p1 on p1.PersonID = c.AlternateContactPersonID
   LEFT JOIN grupo_compra gc on gc.BuyingGroupID = c.BuyingGroupID
 

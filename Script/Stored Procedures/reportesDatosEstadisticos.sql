@@ -1,3 +1,6 @@
+USE WideWorldImporters;
+GO
+
 /*
   Devuelve las montos más altos, bajos y compra promedio que se le hace a los proveedores, agrupando
   los resultados por nombre del proveedor y categoría, además, permite el filtrado mediante estos mismos
@@ -814,6 +817,24 @@ BEGIN
   OFFSET (@NumeroPagina - 1) * @CantidadRegistros ROWS
   FETCH NEXT @CantidadRegistros ROWS ONLY
 
+END
+GO
+
+CREATE PROCEDURE BuscarCiudades
+  @Criterio nvarchar(50) = NULL,
+  @CantidadRegistros int = 20
+AS
+BEGIN
+  SELECT TOP (@CantidadRegistros) 
+    ci.CityID,
+    ci.CityName,
+    pr.StateProvinceName
+  FROM ciudades ci
+  INNER JOIN provincias pr ON pr.StateProvinceID = ci.StateProvinceID
+  WHERE @Criterio IS NULL
+     OR @Criterio = ''
+     OR ci.CityName LIKE @Criterio + '%'
+  ORDER BY ci.CityName, pr.StateProvinceName
 END
 GO
 

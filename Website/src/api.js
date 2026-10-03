@@ -22,7 +22,9 @@ export async function pedir(ruta, opciones = {}) {
   }
 
   if (!respuesta.ok || (datos && datos.ok === false)) {
-    throw new Error((datos && datos.error) || 'Ocurrió un error inesperado.');
+    const error = new Error((datos && datos.error) || 'Ocurrió un error inesperado.');
+    error.estado = respuesta.status;
+    throw error;
   }
 
   return datos;

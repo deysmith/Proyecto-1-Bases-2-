@@ -14,6 +14,9 @@ import Aviso from '../components/Aviso';
 import ConfirmarDialogo from '../components/ConfirmarDialogo';
 import CampoDetalle from '../components/CampoDetalle';
 import Mapa from '../components/Mapa';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import ClienteFormulario from '../components/ClienteFormulario';
 
 const filtrosVacios = { nombre: '', categoriaId: '', metodoEntregaId: '' };
 
@@ -43,8 +46,13 @@ function Clientes() {
   const [detalle, setDetalle] = useState(null);
   const [confirmarBorrado, setConfirmarBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
-
+  
+  // Aviso general
   const [aviso, setAviso] = useState(null);
+
+  // Formulario de cliente
+  const [formularioAbierto, setFormularioAbierto] = useState(false);
+  const [clienteEnEdicion, setClienteEnEdicion] = useState(null);
 
   // Opciones de los filtros (se cargan una sola vez)
   useEffect(() => {
@@ -133,6 +141,23 @@ function Clientes() {
     }
   }
 
+  function abrirNuevo() {
+    setClienteEnEdicion(null);
+    setFormularioAbierto(true);
+  }
+
+  function abrirEdicion() {
+    setClienteEnEdicion(detalle);
+    setFormularioAbierto(true);
+  }
+
+  function alGuardarCliente(mensaje) {
+    setFormularioAbierto(false);
+    setDetalleAbierto(false);
+    setAviso({ tipo: 'success', texto: mensaje });
+    setRecarga((valor) => valor + 1);
+  }
+
   const punto = detalle?.DeliveryLocation?.points?.[0];
 
   return (
@@ -140,6 +165,11 @@ function Clientes() {
       <EncabezadoPagina
         titulo="Clientes"
         subtitulo="Consulte los clientes registrados, filtre los resultados y vea el detalle de cada uno."
+        accion={
+          <Button variant="contained" color="secondary" startIcon={<AddIcon />} onClick={abrirNuevo}>
+            Nuevo cliente
+          </Button>
+        }
       />
 
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -299,6 +329,13 @@ function Clientes() {
 
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
+            startIcon={<EditIcon />}
+            disabled={!detalle}
+            onClick={abrirEdicion}
+          >
+            Editar
+          </Button>
+          <Button
             color="error"
             startIcon={<DeleteIcon />}
             disabled={!detalle}
@@ -322,7 +359,12 @@ function Clientes() {
         alConfirmar={borrarCliente}
         alCancelar={() => setConfirmarBorrado(false)}
       />
-
+      <ClienteFormulario
+        abierto={formularioAbierto}
+        cliente={clienteEnEdicion}
+        alCerrar={() => setFormularioAbierto(false)}
+        alGuardar={alGuardarCliente}
+      />
       <Aviso aviso={aviso} alCerrar={() => setAviso(null)} />
     </>
   );

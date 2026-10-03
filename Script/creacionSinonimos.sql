@@ -26,6 +26,8 @@ CREATE SYNONYM productos FOR Warehouse.StockItems
 CREATE SYNONYM inventario_productos FOR Warehouse.StockItemHoldings
 CREATE SYNONYM nombre_grupo_producto FOR Warehouse.StockGroups
 
+CREATE SYNONYM provincias FOR Application.StateProvinces
+
 /*
 Warehouse.StockItemStockGroups es una tabla muchos a muchos, se relaciona
 con Warehouse.StockItems para indicar el producto y con Warehouse.StockGroups

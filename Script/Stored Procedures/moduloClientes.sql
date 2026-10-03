@@ -15,10 +15,8 @@ Restricciones:
 CREATE PROCEDURE GetClientes 
   @NumeroPagina int = 1,
   @CantidadRegistros int = 20
-
 AS
 BEGIN
-  
   SELECT
       c.CustomerID,
       c.CustomerName,

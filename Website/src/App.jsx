@@ -5,6 +5,7 @@ import Clientes from './pages/Clientes';
 import Proveedores from './pages/Proveedores';
 import Inventario from './pages/Inventario';
 import Ventas from './pages/Ventas';
+import Estadisticas from './pages/Estadisticas';
 
 // Página temporal mientras se construyen los demás módulos
 function Pronto({ titulo }) {
@@ -20,7 +21,7 @@ function App() {
         <Route path="/proveedores" element={<Proveedores />} />
         <Route path="/productos" element={<Inventario />} />
         <Route path="/ventas" element={<Ventas />} />
-        <Route path="/estadisticas" element={<Pronto titulo="Estadísticas" />} />
+        <Route path="/estadisticas" element={<Estadisticas />} />
         <Route path="*" element={<Navigate to="/clientes" replace />} />
       </Routes>
     </Layout>

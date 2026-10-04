@@ -18,3 +18,9 @@ export function fecha(valor) {
   if (!valor) return '—';
   return new Date(valor).toLocaleDateString('es-CR', { timeZone: 'UTC' });
 }
+
+// Convierte un número en texto con 2 decimales (por ejemplo días de rotación)
+export function decimal(valor) {
+  if (valor === null || valor === undefined) return '—';
+  return Number(valor).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

@@ -5,7 +5,7 @@ import { pedir, armarQuery } from '../api';
 // ruta: dirección de la API que busca. parametro: nombre del parámetro con el texto escrito.
 // extra: otros parámetros fijos de la búsqueda. campoId y campoNombre: columnas que devuelve la API.
 function SelectorBusqueda({
-  etiqueta, valor, alCambiar, textoError, ruta, parametro, campoId, campoNombre, extra, ayuda
+  etiqueta, valor, alCambiar, textoError, ruta, parametro, campoId, campoNombre, extra, ayuda, obligatorio
 }) {
   const [opciones, setOpciones] = useState([]);
   const [texto, setTexto] = useState('');
@@ -53,7 +53,7 @@ function SelectorBusqueda({
           {...parametros}
           label={etiqueta}
           size="small"
-          required
+          required={obligatorio !== false}
           error={Boolean(textoError)}
           helperText={textoError || ayuda || 'Escriba para buscar'}
           slotProps={{

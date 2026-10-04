@@ -6,7 +6,7 @@ Este es para el combobox, devuelve todas las categorías.
 El otro es para los filtros, para solo mostrar los que tienen proveedores asociados.
 */
 
-CREATE PROCEDURE ObtenerTodasCategoriasProveedores
+CREATE OR ALTER PROCEDURE ObtenerTodasCategoriasProveedores
 AS
 BEGIN
   SELECT
@@ -16,7 +16,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE ObtenerTodasCategoriasClientes
+CREATE OR ALTER PROCEDURE ObtenerTodasCategoriasClientes
 AS
 BEGIN
   SELECT 
@@ -26,7 +26,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE ObtenerMetodosDeEntregaGeneral
+CREATE OR ALTER PROCEDURE ObtenerMetodosDeEntregaGeneral
 AS
 BEGIN
   SELECT
@@ -36,7 +36,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE ObtenerTodasGruposProductos
+CREATE OR ALTER PROCEDURE ObtenerTodasGruposProductos
 AS
 BEGIN
   SELECT
@@ -46,7 +46,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE ObtenerTiposDePaquete
+CREATE OR ALTER PROCEDURE ObtenerTiposDePaquete
 AS
 BEGIN
   SELECT
@@ -56,7 +56,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE ObtenerColoresProductos
+CREATE OR ALTER PROCEDURE ObtenerColoresProductos
 AS
 BEGIN
   SELECT
@@ -66,15 +66,15 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE ObtenerFechasVentasAnioProveedor
+CREATE OR ALTER PROCEDURE ObtenerFechasVentasAnioProveedor
 AS
 BEGIN
-  SELECT DISTINCT(YEAR(f.InvoiceDate))
+  SELECT DISTINCT(YEAR(f.InvoiceDate)) AS Anio
   FROM facturas f
 END
 GO
 
-CREATE PROCEDURE BuscarPersonas
+CREATE OR ALTER PROCEDURE BuscarPersonas
   @Criterio nvarchar(50) = NULL,
   @SoloVendedores bit = 0,
   @SoloEmpleados bit = 0,

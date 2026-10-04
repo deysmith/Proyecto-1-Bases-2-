@@ -3,8 +3,8 @@ import {
   TableContainer, TableHead, TableRow
 } from '@mui/material';
 
-// columnas: [{ campo: 'CustomerName', titulo: 'Cliente', alinear: 'left' | 'right', formato: (valor) => ... }]
-function TablaDatos({ columnas, filas, cargando, claveFila, alSeleccionar }) {
+// Componente que muestra una tabla de datos con columnas y filas. Permite seleccionar una fila si se proporciona la función alSeleccionar. Se puede personalizar el estilo de cada fila mediante la función estiloFila.
+function TablaDatos({ columnas, filas, cargando, claveFila, alSeleccionar, estiloFila }) {
   return (
     <TableContainer component={Paper}>
       <Table size="small" aria-label="Resultados">
@@ -39,16 +39,19 @@ function TablaDatos({ columnas, filas, cargando, claveFila, alSeleccionar }) {
             </TableRow>
           )}
 
-          {!cargando && filas.map((fila) => (
+          {!cargando && filas.map((fila, indice) => (
             <TableRow
               hover
-              key={fila[claveFila]}
-              tabIndex={0}
+              key={claveFila ? fila[claveFila] : indice}
+              tabIndex={alSeleccionar ? 0 : undefined}
               onClick={() => alSeleccionar && alSeleccionar(fila)}
               onKeyDown={(evento) => {
                 if (evento.key === 'Enter' && alSeleccionar) alSeleccionar(fila);
               }}
-              sx={{ cursor: alSeleccionar ? 'pointer' : 'default' }}
+              sx={{
+                cursor: alSeleccionar ? 'pointer' : 'default',
+                ...(estiloFila ? estiloFila(fila) : {})
+              }}
             >
               {columnas.map((columna) => (
                 <TableCell key={columna.campo} align={columna.alinear || 'left'}>

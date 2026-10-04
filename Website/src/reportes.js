@@ -17,6 +17,8 @@ async function cargarAnios() {
     .map((anio) => ({ valor: anio, texto: String(anio) }));
 }
 
+const anios = await cargarAnios();
+
 // Devuelve una función que carga las opciones de un selector desde la API
 function cargarOpciones(ruta, campoId, campoNombre) {
   return async () => {
@@ -165,7 +167,15 @@ export const reportes = [
     ruta: '/api/reportes/resumen-categorias',
     paginado: false,
     filtros: [],
-    columnas: null
+    columnas: [
+      { campo: 'StockGroupName', titulo: 'Categoría de productos' },
+      ...anios.map((anio) => ({
+        campo: anio.texto,
+        titulo: anio.texto,
+        alinear: 'right',
+        formato: dinero
+      }))
+    ]
   },
   {
     id: 'seguimiento-clientes',

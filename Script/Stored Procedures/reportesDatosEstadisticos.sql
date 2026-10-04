@@ -16,7 +16,7 @@ GO
   Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerDatosCompraProveedores
+CREATE OR ALTER PROCEDURE ObtenerDatosCompraProveedores
   @Nombre_Proveedor nvarchar(100) = NULL,
   @Categoria nvarchar(100) = NULL,
   @NumeroPagina int = 1,
@@ -82,7 +82,7 @@ GO
   Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerDatosVentasCompradores
+CREATE OR ALTER PROCEDURE ObtenerDatosVentasCompradores
   @Nombre_Cliente nvarchar(100) = NULL,
   @Categoria nvarchar(100) = NULL,
   @NumeroPagina int = 1,
@@ -149,7 +149,7 @@ GO
     - @InicioRango y @FinalRango deben existir en la base de datos, a exepción que se ingrese un rango,
       donde alguno de sus valores existan en la base de datos.
 */
-CREATE PROCEDURE ObtenerTopCincoProductos
+CREATE OR ALTER PROCEDURE ObtenerTopCincoProductos
   @InicioRango int = NULL,
   @FinalRango int = NULL,
   @NumeroPagina int = 1,
@@ -245,7 +245,7 @@ GO
     - @InicioRango y @FinalRango deben existir en la base de datos, a exepción que se ingrese un rango,
       donde alguno de sus valores existan en la base de datos.
 */
-CREATE PROCEDURE ObtenerTopCincoClientes
+CREATE OR ALTER PROCEDURE ObtenerTopCincoClientes
   @InicioRango int = NULL,
   @FinalRango int = NULL,
   @NumeroPagina int = 1,
@@ -344,7 +344,7 @@ GO
     - @InicioRango y @FinalRango deben existir en la base de datos, a exepción que se ingrese un rango,
       donde alguno de sus valores existan en la base de datos.
 */
-CREATE PROCEDURE ObtenerTopCincoProveedores
+CREATE OR ALTER PROCEDURE ObtenerTopCincoProveedores
   @InicioRango int = NULL,
   @FinalRango int = NULL,
   @NumeroPagina int = 1,
@@ -437,7 +437,7 @@ GO
   Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ResumenDeVentaPorCategoria
+CREATE OR ALTER PROCEDURE ResumenDeVentaPorCategoria
 WITH EXECUTE AS OWNER
 AS
 BEGIN
@@ -490,7 +490,7 @@ GO
   Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerSeguimientoComprasClientes
+CREATE OR ALTER PROCEDURE ObtenerSeguimientoComprasClientes
   @ID_Cliente int = NULL,
   @Anio int = NULL,
   @Mes int = NULL,
@@ -566,7 +566,7 @@ GO
   Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerSeguimientoComprasProveedores
+CREATE OR ALTER PROCEDURE ObtenerSeguimientoComprasProveedores
   @ID_Proveedor int = NULL,
   @Anio int = NULL,
   @Mes int = NULL,
@@ -649,7 +649,7 @@ GO
   Restricciones:
     - Si no existen unidades vendidas, el resultado de días de rotación se muestra como NULL.
 */
-CREATE PROCEDURE PromedioDiasRotacionProducto
+CREATE OR ALTER PROCEDURE PromedioDiasRotacionProducto
     @ID_Producto int = NULL,
     @Anio int = NULL,
     @ID_Proveedor int = NULL,
@@ -757,7 +757,7 @@ GO
   Restricciones:.
     - No posee restricciones
 */
-CREATE PROCEDURE MetodoEnvioFavoritoPorCuidad
+CREATE OR ALTER PROCEDURE MetodoEnvioFavoritoPorCuidad
     @Anio int = NULL,
     @Mes int = NULL,
     @ID_CategoriaCliente int = NULL,
@@ -820,7 +820,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE BuscarCiudades
+CREATE OR ALTER PROCEDURE BuscarCiudades
   @Criterio nvarchar(50) = NULL,
   @CantidadRegistros int = 20
 AS
@@ -833,7 +833,7 @@ BEGIN
   INNER JOIN provincias pr ON pr.StateProvinceID = ci.StateProvinceID
   WHERE @Criterio IS NULL
      OR @Criterio = ''
-     OR ci.CityName LIKE @Criterio + '%'
+     OR ci.CityName LIKE '%' + @Criterio + '%'
   ORDER BY ci.CityName, pr.StateProvinceName
 END
 GO
@@ -849,6 +849,7 @@ EXECUTE ObtenerSeguimientoComprasClientes @Mes=2
 EXECUTE ObtenerSeguimientoComprasProveedores 
 EXECUTE PromedioDiasRotacionProducto @Anio = 2013
 EXECUTE MetodoEnvioFavoritoPorCuidad @Anio = 2013
+EXECUTE BuscarCiudades 'h'
 
 select * from transacciones_productos where TransactionTypeID = 1
 select distinct(tt.TransactionTypeName)

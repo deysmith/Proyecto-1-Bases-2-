@@ -12,7 +12,7 @@ Restricciones:
     - @NumeroPagina debe ser un número entero positivo
     - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE GetClientes 
+CREATE OR ALTER PROCEDURE GetClientes 
   @NumeroPagina int = 1,
   @CantidadRegistros int = 20
 AS
@@ -50,7 +50,7 @@ Restricciones:
     - @NumeroPagina debe ser un número entero positivo
     - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE BuscarFiltrarClientes
+CREATE OR ALTER PROCEDURE BuscarFiltrarClientes
   @Criterio nvarchar(100) = NULL,
   @CategoriaID int = NULL,
   @MetodoEntregaID int = NULL,
@@ -97,7 +97,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerCategoriasClientes
+CREATE OR ALTER PROCEDURE ObtenerCategoriasClientes
 AS
 BEGIN
   SELECT 
@@ -117,7 +117,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerMetodosDeEntregaClientes
+CREATE OR ALTER PROCEDURE ObtenerMetodosDeEntregaClientes
 AS
 BEGIN
   SELECT DISTINCT (DeliveryMethodName),
@@ -138,7 +138,7 @@ GO
   Restricciones
   - El nombre del cliente debe de coincidir con alguno registrado
 */
-CREATE PROCEDURE ObtenerDatosClientes
+CREATE OR ALTER PROCEDURE ObtenerDatosClientes
   @Nombre_Cliente nvarchar(100) = NULL,  --El nombre del cliente es único
   @ID_Cliente int = NULL
 AS
@@ -246,7 +246,7 @@ Restricciones:
     en sus respectivas tablas.
   - Si ocurre un error, la transacción se cancela.
 */
-CREATE PROCEDURE AgregarNuevoCliente
+CREATE OR ALTER PROCEDURE AgregarNuevoCliente
   @Nombre_Cliente nvarchar(100),
   @CategoriaID int,
   @Nombre_ContactoPrimario nvarchar(50) = NULL,
@@ -478,7 +478,7 @@ Restricciones:
   - @Nombre_Cliente no puede coincidir con el nombre de otro cliente..
   - Si un parámetro es null, se conserva el valor actual del cliente.
 */
-CREATE PROCEDURE EditarDatosClientes
+CREATE OR ALTER PROCEDURE EditarDatosClientes
   @ID_Cliente int,
   @Nombre_Cliente nvarchar(100) = NULL,
   @CategoriaID int = NULL,
@@ -570,7 +570,7 @@ GO
       - Órdenes asociadas.
       - Transacciones asociadas.
 */
-CREATE PROCEDURE BorrarCliente
+CREATE OR ALTER PROCEDURE BorrarCliente
   @ID_Cliente int
 AS
 BEGIN

@@ -13,7 +13,7 @@ Restricciones:
     - @NumeroPagina debe ser un número entero positivo
     - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE GetFacturas
+CREATE OR ALTER PROCEDURE GetFacturas
   @NumeroPagina int = 1,
   @CantidadRegistros int = 20
 AS
@@ -54,7 +54,7 @@ Restricciones:
   - @NumeroPagina debe ser un número entero positivo
   - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE BuscarFacturas
+CREATE OR ALTER PROCEDURE BuscarFacturas
   @Nombre_Cliente nvarchar(100) = NULL,
   @FechaInicio date = NULL,
   @FechaFin date = NULL,
@@ -113,7 +113,7 @@ Salidas:
 Restricciones:
   - @Numero_Factura debe estar registrado
 */
-CREATE PROCEDURE ObtenerEncabezadoFactura
+CREATE OR ALTER PROCEDURE ObtenerEncabezadoFactura
   @Numero_Factura int
 AS
 BEGIN
@@ -159,7 +159,7 @@ Salidas:
 Restricciones:
   - @Numero_Factura debe estar registrado
 */
-CREATE PROCEDURE ObtenerDetalleFactura
+CREATE OR ALTER PROCEDURE ObtenerDetalleFactura
   @Numero_Factura int
 AS
 BEGIN
@@ -198,7 +198,7 @@ Restricciones:
   - @ID_Cliente debe corresponder a un cliente existente.
   - @ID_Producto debe corresponder a un producto existente.
 */
-CREATE PROCEDURE CrearFactura
+CREATE OR ALTER PROCEDURE CrearFactura
   @ID_Cliente int,
   @ID_BillToCustomer int,
   @ID_MetodoEntrega int,
@@ -362,7 +362,7 @@ GO
   Restricciones:
     - La factura indicada debe existir.
 */
-CREATE PROCEDURE EditarDatosFactura
+CREATE OR ALTER PROCEDURE EditarDatosFactura
   @ID_Factura int,
   @ID_Cliente int = NULL,
   @ID_BillToCustomer int = NULL,
@@ -427,7 +427,7 @@ GO
       - Detalles de factura relacionadas.
       - Transacciones de inventario
 */
-CREATE PROCEDURE EliminarFactura
+CREATE OR ALTER PROCEDURE EliminarFactura
   @ID_Factura int
 AS
 BEGIN

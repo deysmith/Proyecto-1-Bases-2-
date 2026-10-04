@@ -15,6 +15,7 @@ CREATE SYNONYM metodos_entrega FOR Application.DeliveryMethods
 CREATE SYNONYM ciudades FOR Application.Cities
 CREATE SYNONYM personas FOR Application.People
 CREATE SYNONYM tipos_transacciones FOR Application.TransactionTypes
+CREATE SYNONYM provincias FOR Application.StateProvinces
 
 CREATE SYNONYM proveedores FOR Purchasing.Suppliers
 CREATE SYNONYM categorias_proveedores FOR Purchasing.SupplierCategories
@@ -25,8 +26,6 @@ CREATE SYNONYM transacciones_proveedores FOR Purchasing.SupplierTransactions
 CREATE SYNONYM productos FOR Warehouse.StockItems
 CREATE SYNONYM inventario_productos FOR Warehouse.StockItemHoldings
 CREATE SYNONYM nombre_grupo_producto FOR Warehouse.StockGroups
-
-CREATE SYNONYM provincias FOR Application.StateProvinces
 
 /*
 Warehouse.StockItemStockGroups es una tabla muchos a muchos, se relaciona

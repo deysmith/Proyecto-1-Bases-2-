@@ -122,23 +122,29 @@ BEGIN
     f.CustomerID,
     c.CustomerName,
     f.BillToCustomerID,
+    bc.CustomerName as BillToCustomerName,
     f.DeliveryMethodID,
     me.DeliveryMethodName,
     ISNULL(f.CustomerPurchaseOrderNumber, 'No posee número de orden') as CustomerPurchaseOrderNumber,
     f.ContactPersonID,
     p.FullName as ContactPerson,
     f.AccountsPersonID,
+    pa.FullName as AccountsPerson,
     f.SalespersonPersonID,
     p1.FullName as SalesPerson,
     f.PackedByPersonID,
+    pk.FullName as PackedByPerson,
     f.InvoiceDate,
     ISNULL(f.DeliveryInstructions, 'No posee instrucciones de entrega') as DeliveryInstructions
 
   FROM facturas f
   INNER JOIN clientes c on c.CustomerID = f.CustomerID
+  INNER JOIN clientes bc on bc.CustomerID = f.BillToCustomerID
   INNER JOIN metodos_entrega me on me.DeliveryMethodID = f.DeliveryMethodID
   INNER JOIN personas p on p.PersonID = f.ContactPersonID
+  INNER JOIN personas pa on pa.PersonID = f.AccountsPersonID
   INNER JOIN personas p1 on p1.PersonID = f.SalespersonPersonID
+  INNER JOIN personas pk on pk.PersonID = f.PackedByPersonID
   WHERE f.InvoiceID = @Numero_Factura
 END
 GO
@@ -158,6 +164,7 @@ CREATE PROCEDURE ObtenerDetalleFactura
 AS
 BEGIN
   SELECT
+    df.InvoiceLineID,
     df.StockItemID,
     p.StockItemName,
     df.Quantity,

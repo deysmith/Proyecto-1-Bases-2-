@@ -11,7 +11,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE GetProveedores
+CREATE OR ALTER PROCEDURE GetProveedores
   @NumeroPagina int = 1,
   @CantidadRegistros int = 20
 AS
@@ -44,7 +44,7 @@ Salidas:
 Restricciones:
     - EL criterio debe tener entre 0 y 50 caracteres
 */
-CREATE PROCEDURE BuscarProveedores
+CREATE OR ALTER PROCEDURE BuscarProveedores
   @Nombre_Proveedor nvarchar(100) = NULL,
   @CategoriaID int = NULL,
   @MetodoEntegaID int = NULL,
@@ -86,7 +86,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerCategoriasProveedores
+CREATE OR ALTER PROCEDURE ObtenerCategoriasProveedores
 AS
 BEGIN
   SELECT
@@ -105,7 +105,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerMetodosDeEntregaProveedores
+CREATE OR ALTER PROCEDURE ObtenerMetodosDeEntregaProveedores
 AS
 BEGIN
   SELECT DISTINCT me.DeliveryMethodName, me.DeliveryMethodID
@@ -127,7 +127,7 @@ Salidas:
 Restricciones:
     -
 */
-CREATE PROCEDURE ObtenerDatosProveedor
+CREATE OR ALTER PROCEDURE ObtenerDatosProveedor
   @Nombre_Proveedor nvarchar(100) = NULL,
   @ID_Proveedor int = NULL
 AS
@@ -138,7 +138,7 @@ BEGIN
       p.SupplierName,
       c.SupplierCategoryName,
       pe.FullName as PrimaryContact,
-      pe1.FullName as AlternativeContact,
+      ISNULL(pe1.FullName, 'No posee contacto alternativo') as AlternativeContact,
       ISNULL(me.DeliveryMethodName, 'No posee un metodo de entrega estándar') as DeliveryMethodName,
       ci.CityName,
       p.DeliveryPostalCode,
@@ -149,18 +149,29 @@ BEGIN
           'Entrega (Delivery): ',
           p.DeliveryAddressLine1, 
           ISNULL( ', ' +  p.DeliveryAddressLine2, ''), 
-          ' - Postal',
+          ' - Postal: ',
           p.PostalAddressLine1, 
           ISNULL(', ' + p.PostalAddressLine2, '')) as Address,
       p.DeliveryLocation,
       ISNULL(p.BankAccountBranch, 'No indica') as BankAccountBranch,
       ISNULL(p.BankAccountNumber, 'No indica') as BankAccountNumber,
-      p.PaymentDays
+      p.PaymentDays,
+      p.SupplierCategoryID,
+      p.DeliveryMethodID,
+      p.DeliveryCityID,
+      p.PostalCityID,
+      cp.CityName AS PostalCityName,
+      p.DeliveryAddressLine1,
+      p.DeliveryAddressLine2,
+      p.PostalAddressLine1,
+      p.PostalAddressLine2,
+      p.PostalPostalCode
 
   FROM proveedores p
   INNER JOIN categorias_proveedores c on c.SupplierCategoryID = p.SupplierCategoryID
   INNER JOIN personas pe on pe.PersonID = p.PrimaryContactPersonID
   INNER JOIN ciudades ci on ci.CityID = p.DeliveryCityID
+  INNER JOIN ciudades cp on cp.CityID = p.PostalCityID
   LEFT JOIN personas pe1 on pe1.PersonID = p.AlternateContactPersonID
   LEFT JOIN metodos_entrega me on me.DeliveryMethodID = p.DeliveryMethodID
   WHERE (@ID_Proveedor IS NULL AND p.SupplierName = @Nombre_Proveedor)
@@ -218,7 +229,7 @@ Restricciones:
     antes de crear el proveedor.
   - Si ocurre un error, la transacción se cancela.
 */
-CREATE PROCEDURE AgregarNuevoProveedor 
+CREATE OR ALTER PROCEDURE AgregarNuevoProveedor 
   @Nombre_Proveedor nvarchar(100),
   @CategoriaID int,
   @Nombre_ContactoPrimario nvarchar(50) = NULL,
@@ -404,7 +415,7 @@ BEGIN
   SELECT
     @ID_Proveedor AS SupplierID,
     @ID_ContactoPrimario AS ID_ContactoPrimario,
-    @ID_ContactoSecundario AS ID_ContactoSecundario,
+    @ID_ContactoSecundario AS ID_ContactoSecundario
 
   END TRY
 
@@ -451,7 +462,7 @@ GO
     - @Nombre_Proveedor no puede coincidir con el nombre de otro proveedor.
     - Si un parámetro es null, se conserva el valor actual del proveedor.
 */
-CREATE PROCEDURE EditarDatosProveedor
+CREATE OR ALTER PROCEDURE EditarDatosProveedor
   @ID_Proveedor int,
   @Nombre_Proveedor nvarchar(100) = NULL,
   @CategoriaID int = NULL,
@@ -550,7 +561,7 @@ GO
       - Productos asociados.
       - Transacciones relacionadas con productos.
 */
-CREATE PROCEDURE BorrarProveedor
+CREATE OR ALTER PROCEDURE BorrarProveedor
   @ID_Proveedor int
 AS
 BEGIN

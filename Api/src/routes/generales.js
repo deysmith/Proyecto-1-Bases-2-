@@ -41,4 +41,22 @@ router.get('/ciudades', async (req, res) => {
   }
 });
 
+// GET /api/generales/personas?criterio=an&soloVendedores=1&soloEmpleados=1
+router.get('/personas', async (req, res) => {
+  try {
+    const cantidad = Math.min(aEntero(req.query.cantidad) || 20, 50);
+
+    const filas = await ejecutarSP('BuscarPersonas', [
+      { nombre: 'Criterio', tipo: sql.NVarChar(50), valor: req.query.criterio },
+      { nombre: 'SoloVendedores', tipo: sql.Bit, valor: req.query.soloVendedores === '1' ? 1 : 0 },
+      { nombre: 'SoloEmpleados', tipo: sql.Bit, valor: req.query.soloEmpleados === '1' ? 1 : 0 },
+      { nombre: 'CantidadRegistros', tipo: sql.Int, valor: cantidad }
+    ]);
+
+    res.json({ ok: true, datos: filas });
+  } catch (error) {
+    errorServidor(res, error);
+  }
+});
+
 module.exports = router;

@@ -52,7 +52,7 @@ function TablaDatos({ columnas, filas, cargando, claveFila, alSeleccionar }) {
             >
               {columnas.map((columna) => (
                 <TableCell key={columna.campo} align={columna.alinear || 'left'}>
-                  {columna.formato ? columna.formato(fila[columna.campo]) : fila[columna.campo]}
+                  {columna.formato ? columna.formato(fila[columna.campo], fila) : fila[columna.campo]}
                 </TableCell>
               ))}
             </TableRow>

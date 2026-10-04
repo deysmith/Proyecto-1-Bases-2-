@@ -74,6 +74,33 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE BuscarPersonas
+  @Criterio nvarchar(50) = NULL,
+  @SoloVendedores bit = 0,
+  @SoloEmpleados bit = 0,
+  @CantidadRegistros int = 20
+AS
+BEGIN
+  SELECT TOP (@CantidadRegistros)
+      p.PersonID,
+      p.FullName
+  FROM personas p
+  WHERE (
+    @Criterio IS NULL
+    OR @Criterio = ''
+    OR p.FullName LIKE @Criterio + '%'
+    OR p.FullName LIKE '% ' + @Criterio + '%'
+  ) AND (
+    @SoloVendedores = 0
+    OR p.IsSalesperson = 1
+  ) AND (
+    @SoloEmpleados = 0
+    OR p.IsEmployee = 1
+  )
+  ORDER BY p.FullName
+END
+GO
+
 EXECUTE ObtenerTodasCategoriasProveedores
 EXECUTE ObtenerTodasCategoriasClientes
 EXECUTE ObtenerMetodosDeEntregaGeneral

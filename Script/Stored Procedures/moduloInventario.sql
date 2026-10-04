@@ -12,7 +12,7 @@ Restricciones:
     - @NumeroPagina debe ser un número entero positivo
     - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE GetProductos
+CREATE OR ALTER PROCEDURE GetProductos
   @NumeroPagina int = 1,
   @CantidadRegistros int = 20
 AS
@@ -51,7 +51,7 @@ Restricciones:
     - @NumeroPagina debe ser un número entero positivo
     - @CantidadRegistros deber ser mayor a 0 (entero positivo)
 */
-CREATE PROCEDURE BuscarProductos
+CREATE OR ALTER PROCEDURE BuscarProductos
   @Nombre nvarchar(100) = NULL,
   @GrupoID int = NULL,
   @CantidadMinima int = NULL,
@@ -105,7 +105,7 @@ Salidas:
 Restricciones:
     - No posee restricciones
 */
-CREATE PROCEDURE ObtenerGruposProductos
+CREATE OR ALTER PROCEDURE ObtenerGruposProductos
 AS
 BEGIN
   SELECT
@@ -126,7 +126,7 @@ Restricciones:
   - @Nombre_Producto debe tener un largo máximo de 100 caracteres.
   - El nombre del producto debe coincidir exactamente con un producto registrado.
 */
-CREATE PROCEDURE ObtenerDatosProducto
+CREATE OR ALTER PROCEDURE ObtenerDatosProducto
   @Nombre_Producto nvarchar(100) = NULL,
   @ID_Producto int = NULL
 AS
@@ -152,6 +152,7 @@ BEGIN
     ip.QuantityOnHand,
     ip.BinLocation,
     p.SearchDetails,
+    p.MarketingComments,
     (SELECT STRING_AGG(CAST(g.StockGroupID AS nvarchar(10)), ',')
      FROM grupos_productos g
      WHERE g.StockItemID = p.StockItemID) AS GruposIDs
@@ -209,7 +210,7 @@ Restricciones:
     la operación.
   - Si ocurre un error, la transacción se cancela.
 */
-CREATE PROCEDURE AgregarNuevoProducto
+CREATE OR ALTER PROCEDURE AgregarNuevoProducto
   @Nombre_Producto nvarchar(100),
   @ProveedorID int,
   @ColorID int = NULL,
@@ -365,7 +366,7 @@ GO
   Restricciones:
     - @ID_Producto debe corresponder a un producto existente.
 */
-CREATE PROCEDURE EditarDatosProducto
+CREATE OR ALTER PROCEDURE EditarDatosProducto
   @ID_Producto int = NULL,
   @Nombre_Producto nvarchar(100) = NULL,
   @ColorID int = NULL,
@@ -481,7 +482,7 @@ GO
       - Una oferta especial
       - Transacciones asociadas
 */
-CREATE PROCEDURE EliminarProducto
+CREATE OR ALTER PROCEDURE EliminarProducto
   @ID_Producto int
 AS
 BEGIN
